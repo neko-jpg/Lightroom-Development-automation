@@ -4,6 +4,7 @@
 
 local LrLogger = import 'LrLogger'
 local LrDevelopController = import 'LrDevelopController'
+local LrApplication = import 'LrApplication' -- Import LrApplication to get catalog access
 local JSON = require 'Utils.JSON' -- Use 'require' to load modules from the plugin folder
 
 local log = LrLogger('JunmaiAutoDevJobRunner')
@@ -26,15 +27,56 @@ function JobRunner.runJob(config)
 
     log:info("Successfully decoded job JSON. Version: " .. tostring(config.version))
 
-    -- 2. Get the active photo to apply settings to.
-    -- Note: This requires the user to have a photo selected in the Develop module.
-    local photo = LrDevelopController.getActivePhoto()
-    if photo == nil then
+    -- 1. Get the original photo to apply settings to.
+    local originalPhoto = LrDevelopController.getActivePhoto()
+    if originalPhoto == nil then
         log:error("No active photo selected in the Develop module.")
         return false
     end
+    log:info("Original photo found: " .. tostring(originalPhoto))
 
-    log:info("Processing job for photo: " .. tostring(photo))
+
+    -- 2. Create a virtual copy and a snapshot for safety. This must be done inside a write-access task.
+    local catalog = LrApplication.activeCatalog()
+    local photoToEdit = nil -- This will hold our new virtual copy
+
+    local actionName = "JunmaiAutoDev: Prepare Photo for Auto Development"
+    local success, result = catalog:withWriteAccessDo(actionName, function()
+        -- Set the current photo as the selection to create the virtual copy from it.
+        catalog:setSelectedPhotos(originalPhoto)
+
+        -- Create the virtual copy. The new copy becomes the active selection.
+        local virtualCopies = catalog:createVirtualCopies("JunmaiAutoDev Edit")
+        if virtualCopies and #virtualCopies > 0 then
+            photoToEdit = virtualCopies[1]
+            log:info("Successfully created virtual copy: " .. tostring(photoToEdit))
+
+            -- Create a snapshot on the new virtual copy before applying changes
+            local snapshotSuccess, snapshotError = photoToEdit:createDevelopSnapshot("JunmaiAutoDev - Before", false)
+            if snapshotSuccess then
+                log:info("Successfully created 'Before' snapshot on virtual copy.")
+            else
+                log:error("Failed to create snapshot: " .. tostring(snapshotError))
+                -- Proceed even if snapshot fails, but log it.
+            end
+        else
+            log:error("Failed to create a virtual copy.")
+            return false -- Signal failure to the withWriteAccessDo block
+        end
+        return true -- Signal success
+    end)
+
+    if not success or not photoToEdit then
+        log:error("Could not prepare photo with virtual copy and snapshot. Aborting job.")
+        if type(result) == "string" then
+            log:error("Reason: " .. result)
+        end
+        return false
+    end
+
+    -- After creation, the virtual copy should be the active photo.
+    -- All subsequent LrDevelopController calls will apply to it.
+    log:info("Processing job for virtual copy: " .. tostring(photoToEdit))
 
     -- 3. Iterate through the pipeline and apply settings for each stage
     if config.pipeline and type(config.pipeline) == "table" then
