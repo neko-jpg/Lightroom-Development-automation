@@ -1,0 +1,234 @@
+{
+  "version": "1.0",
+  "description": "Context recognition rules for automatic preset selection",
+  "contexts": {
+    "backlit_portrait": {
+      "description": "逆光ポートレート - 夕方の屋外人物撮影",
+      "conditions": [
+        {"field": "settings.iso", "operator": ">", "value": 400},
+        {"field": "settings.focal_length", "operator": "between", "value": [35, 85]},
+        {"field": "context_hints.time_of_day", "operator": "in", "value": ["golden_hour_evening", "golden_hour_morning"]},
+        {"field": "location.location_type", "operator": "==", "value": "outdoor"}
+      ],
+      "weights": [0.3, 0.2, 0.3, 0.2],
+      "recommended_preset": "WhiteLayer_Transparency_v4",
+      "preset_blend": 60
+    },
+    "low_light_indoor": {
+      "description": "室内低照度 - 高ISO室内撮影",
+      "conditions": [
+        {"field": "settings.iso", "operator": ">", "value": 1600},
+        {"field": "location.has_gps", "operator": "==", "value": false},
+        {"field": "context_hints.lighting", "operator": "in", "value": ["low_light", "very_low_light"]}
+      ],
+      "weights": [0.4, 0.3, 0.3],
+      "recommended_preset": "LowLight_NR_v2",
+      "preset_blend": 80
+    },
+    "landscape_sky": {
+      "description": "風景・空 - 広角での風景撮影",
+      "conditions": [
+        {"field": "settings.focal_length", "operator": "<", "value": 35},
+        {"field": "location.location_type", "operator": "==", "value": "outdoor"},
+        {"field": "context_hints.time_of_day", "operator": "in", "value": ["morning", "afternoon", "golden_hour_evening", "golden_hour_morning"]},
+        {"field": "settings.iso", "operator": "<", "value": 800}
+      ],
+      "weights": [0.3, 0.2, 0.3, 0.2],
+      "recommended_preset": "Landscape_Vivid_v3",
+      "preset_blend": 70
+    },
+    "night_cityscape": {
+      "description": "夜景・都市 - 夜間の都市風景",
+      "conditions": [
+        {"field": "context_hints.time_of_day", "operator": "in", "value": ["night", "evening"]},
+        {"field": "settings.iso", "operator": ">", "value": 800},
+        {"field": "settings.focal_length", "operator": "<", "value": 50},
+        {"field": "location.location_type", "operator": "==", "value": "outdoor"}
+      ],
+      "weights": [0.35, 0.25, 0.2, 0.2],
+      "recommended_preset": "Night_City_v2",
+      "preset_blend": 75
+    },
+    "blue_hour_landscape": {
+      "description": "ブルーアワー風景 - 日の出前/日没後の風景",
+      "conditions": [
+        {"field": "context_hints.time_of_day", "operator": "in", "value": ["blue_hour_morning", "blue_hour_evening"]},
+        {"field": "settings.focal_length", "operator": "<", "value": 50},
+        {"field": "location.location_type", "operator": "==", "value": "outdoor"}
+      ],
+      "weights": [0.5, 0.3, 0.2],
+      "recommended_preset": "BlueHour_Cool_v1",
+      "preset_blend": 65
+    },
+    "indoor_portrait": {
+      "description": "室内ポートレート - 室内での人物撮影",
+      "conditions": [
+        {"field": "settings.focal_length", "operator": "between", "value": [35, 135]},
+        {"field": "location.has_gps", "operator": "==", "value": false},
+        {"field": "settings.iso", "operator": "between", "value": [400, 3200]},
+        {"field": "context_hints.lighting", "operator": "in", "value": ["moderate_light", "low_light"]}
+      ],
+      "weights": [0.3, 0.2, 0.3, 0.2],
+      "recommended_preset": "Indoor_Portrait_v3",
+      "preset_blend": 70
+    },
+    "sports_action": {
+      "description": "スポーツ・動体 - 高速シャッターでの動体撮影",
+      "conditions": [
+        {"field": "settings.shutter_speed", "operator": "shutter_faster_than", "value": "1/500"},
+        {"field": "settings.focal_length", "operator": ">", "value": 70},
+        {"field": "settings.iso", "operator": ">", "value": 400}
+      ],
+      "weights": [0.4, 0.3, 0.3],
+      "recommended_preset": "Sports_Sharp_v2",
+      "preset_blend": 75
+    },
+    "macro_closeup": {
+      "description": "マクロ・接写 - 近接撮影",
+      "conditions": [
+        {"field": "settings.aperture", "operator": ">", "value": 5.6},
+        {"field": "settings.focal_length", "operator": "between", "value": [50, 105]},
+        {"field": "settings.iso", "operator": "<", "value": 800}
+      ],
+      "weights": [0.4, 0.3, 0.3],
+      "recommended_preset": "Macro_Detail_v2",
+      "preset_blend": 65
+    },
+    "sunset_golden": {
+      "description": "夕焼け・ゴールデンアワー - 夕方の暖色系撮影",
+      "conditions": [
+        {"field": "context_hints.time_of_day", "operator": "==", "value": "golden_hour_evening"},
+        {"field": "location.location_type", "operator": "==", "value": "outdoor"},
+        {"field": "settings.iso", "operator": "<", "value": 1600}
+      ],
+      "weights": [0.5, 0.3, 0.2],
+      "recommended_preset": "Sunset_Warm_v3",
+      "preset_blend": 80
+    },
+    "overcast_soft": {
+      "description": "曇天・ソフト - 曇りの日の柔らかい光",
+      "conditions": [
+        {"field": "settings.iso", "operator": "<", "value": 800},
+        {"field": "context_hints.time_of_day", "operator": "in", "value": ["morning", "afternoon", "midday"]},
+        {"field": "location.location_type", "operator": "==", "value": "outdoor"},
+        {"field": "settings.exposure_compensation", "operator": ">=", "value": 0}
+      ],
+      "weights": [0.3, 0.2, 0.3, 0.2],
+      "recommended_preset": "Overcast_Soft_v2",
+      "preset_blend": 60
+    },
+    "harsh_midday": {
+      "description": "真昼の強い光 - 正午前後の強い日差し",
+      "conditions": [
+        {"field": "context_hints.time_of_day", "operator": "==", "value": "midday"},
+        {"field": "location.location_type", "operator": "==", "value": "outdoor"},
+        {"field": "settings.iso", "operator": "<", "value": 400}
+      ],
+      "weights": [0.4, 0.3, 0.3],
+      "recommended_preset": "Midday_Contrast_v2",
+      "preset_blend": 70
+    },
+    "concert_stage": {
+      "description": "コンサート・ステージ - 舞台照明下の撮影",
+      "conditions": [
+        {"field": "settings.iso", "operator": ">", "value": 3200},
+        {"field": "location.has_gps", "operator": "==", "value": false},
+        {"field": "settings.focal_length", "operator": ">", "value": 50},
+        {"field": "context_hints.time_of_day", "operator": "in", "value": ["evening", "night"]}
+      ],
+      "weights": [0.35, 0.25, 0.2, 0.2],
+      "recommended_preset": "Concert_Stage_v1",
+      "preset_blend": 85
+    },
+    "food_photography": {
+      "description": "料理撮影 - 食べ物のクローズアップ",
+      "conditions": [
+        {"field": "settings.focal_length", "operator": "between", "value": [35, 85]},
+        {"field": "settings.aperture", "operator": "<", "value": 5.6},
+        {"field": "location.has_gps", "operator": "==", "value": false},
+        {"field": "settings.iso", "operator": "<", "value": 1600}
+      ],
+      "weights": [0.3, 0.3, 0.2, 0.2],
+      "recommended_preset": "Food_Vibrant_v2",
+      "preset_blend": 70
+    },
+    "street_photography": {
+      "description": "ストリートフォト - 街中でのスナップ撮影",
+      "conditions": [
+        {"field": "settings.focal_length", "operator": "between", "value": [24, 50]},
+        {"field": "location.location_type", "operator": "==", "value": "outdoor"},
+        {"field": "context_hints.time_of_day", "operator": "in", "value": ["morning", "afternoon", "evening"]},
+        {"field": "settings.iso", "operator": "<", "value": 1600}
+      ],
+      "weights": [0.3, 0.25, 0.25, 0.2],
+      "recommended_preset": "Street_Natural_v2",
+      "preset_blend": 65
+    },
+    "wedding_ceremony": {
+      "description": "結婚式・式典 - 室内イベント撮影",
+      "conditions": [
+        {"field": "settings.focal_length", "operator": "between", "value": [24, 85]},
+        {"field": "location.has_gps", "operator": "==", "value": false},
+        {"field": "settings.iso", "operator": "between", "value": [800, 3200]},
+        {"field": "context_hints.lighting", "operator": "==", "value": "moderate_light"}
+      ],
+      "weights": [0.3, 0.2, 0.3, 0.2],
+      "recommended_preset": "Wedding_Soft_v3",
+      "preset_blend": 75
+    },
+    "wildlife_telephoto": {
+      "description": "野生動物・望遠 - 望遠レンズでの動物撮影",
+      "conditions": [
+        {"field": "settings.focal_length", "operator": ">", "value": 200},
+        {"field": "location.location_type", "operator": "==", "value": "outdoor"},
+        {"field": "settings.iso", "operator": ">", "value": 400}
+      ],
+      "weights": [0.5, 0.3, 0.2],
+      "recommended_preset": "Wildlife_Sharp_v2",
+      "preset_blend": 70
+    },
+    "architecture_interior": {
+      "description": "建築・インテリア - 室内建築撮影",
+      "conditions": [
+        {"field": "settings.focal_length", "operator": "<", "value": 35},
+        {"field": "location.has_gps", "operator": "==", "value": false},
+        {"field": "settings.iso", "operator": "<", "value": 1600},
+        {"field": "settings.aperture", "operator": ">", "value": 5.6}
+      ],
+      "weights": [0.3, 0.25, 0.25, 0.2],
+      "recommended_preset": "Architecture_Clean_v2",
+      "preset_blend": 65
+    },
+    "beach_bright": {
+      "description": "ビーチ・明るい環境 - 海辺の明るい撮影",
+      "conditions": [
+        {"field": "location.location_type", "operator": "==", "value": "outdoor"},
+        {"field": "settings.iso", "operator": "<", "value": 400},
+        {"field": "context_hints.time_of_day", "operator": "in", "value": ["morning", "midday", "afternoon"]},
+        {"field": "settings.exposure_compensation", "operator": "<", "value": 0}
+      ],
+      "weights": [0.3, 0.3, 0.2, 0.2],
+      "recommended_preset": "Beach_Bright_v2",
+      "preset_blend": 70
+    },
+    "silhouette_sunset": {
+      "description": "シルエット・夕景 - 逆光でのシルエット撮影",
+      "conditions": [
+        {"field": "context_hints.time_of_day", "operator": "in", "value": ["golden_hour_evening", "blue_hour_evening"]},
+        {"field": "location.location_type", "operator": "==", "value": "outdoor"},
+        {"field": "settings.exposure_compensation", "operator": "<", "value": -0.5},
+        {"field": "context_hints.backlight_risk", "operator": "==", "value": true}
+      ],
+      "weights": [0.35, 0.25, 0.2, 0.2],
+      "recommended_preset": "Silhouette_Drama_v1",
+      "preset_blend": 80
+    },
+    "default": {
+      "description": "デフォルト - 標準的な撮影",
+      "conditions": [],
+      "weights": [],
+      "recommended_preset": "Standard_Balanced_v1",
+      "preset_blend": 50
+    }
+  }
+}
