@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+pip-selfcheck.json
+
+# Logs
+*.log
+
+# IDE / Editor specific
+.vscode/
+.idea/
+
+# Application data
+local_bridge/jobs/inbox/
+local_bridge/jobs/processing/
+local_bridge/jobs/completed/
+local_bridge/jobs/failed/
