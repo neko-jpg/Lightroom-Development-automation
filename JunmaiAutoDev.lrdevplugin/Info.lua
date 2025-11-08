@@ -11,12 +11,16 @@ return {
     LrPluginVersion = "0.1.0",
 
     -- This plugin adds a menu item to the File > Plug-in Extras menu.
-    LrExportMenuItems = {
-        title = "Junmai Auto Develop",
-        file = "Main.lua",
+    -- This plugin adds a menu item to the Library > Plug-in Extras menu.
+    LrLibraryMenuItems = {
+        {
+            title = "Junmai AutoDev Control Panel",
+            file = "ShowControlPanel.lua",
+        },
     },
 
-    -- Define the process factory, which Lightroom calls to run the plugin.
-    -- The actual logic will be in Main.lua.
+    -- The main logic file, loaded when the plugin is enabled.
+    "Main.lua",
+
     VERSION = { major=0, minor=1, revision=0, build=1, ZSTRING="0.1.0.1" },
 }
