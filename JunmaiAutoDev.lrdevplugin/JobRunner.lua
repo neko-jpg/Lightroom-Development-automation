@@ -141,6 +141,60 @@ function JobRunner.runJob(config)
                 applyHslSettings(task.hue, "Hue")
                 applyHslSettings(task.sat, "Saturation")
                 applyHslSettings(task.lum, "Luminance")
+            elseif stage == "detail" then
+                -- Sharpening
+                if task.sharpen and type(task.sharpen) == "table" then
+                    local sharpenMap = { amount = "SharpeningAmount", radius = "SharpeningRadius", detail = "SharpeningDetail", masking = "SharpeningMasking" }
+                    for key, settingName in pairs(sharpenMap) do
+                        if task.sharpen[key] ~= nil then
+                            local ok, err = pcall(LrDevelopController.setValue, settingName, task.sharpen[key])
+                            if not ok then log:error(string.format("   Failed to set '%s': %s", settingName, err)) else log:info(string.format("   Set '%s' to %s", settingName, tostring(task.sharpen[key]))) end
+                        end
+                    end
+                end
+                -- Noise Reduction
+                if task.nr and type(task.nr) == "table" then
+                    local nrMap = { luminance = "LuminanceNoiseReduction", color = "ColorNoiseReduction" }
+                    for key, settingName in pairs(nrMap) do
+                        if task.nr[key] ~= nil then
+                           local ok, err = pcall(LrDevelopController.setValue, settingName, task.nr[key])
+                           if not ok then log:error(string.format("   Failed to set '%s': %s", settingName, err)) else log:info(string.format("   Set '%s' to %s", settingName, tostring(task.nr[key]))) end
+                        end
+                    end
+                end
+            elseif stage == "effects" then
+                -- Grain
+                if task.grain and type(task.grain) == "table" and task.grain.amount ~= nil then
+                    local ok, err = pcall(LrDevelopController.setValue, "GrainAmount", task.grain.amount)
+                    if not ok then log:error(string.format("   Failed to set 'GrainAmount': %s", err)) else log:info(string.format("   Set 'GrainAmount' to %s", tostring(task.grain.amount))) end
+                end
+                -- Vignette
+                if task.vignette and type(task.vignette) == "table" then
+                    local vignetteMap = { amount = "PostCropVignetteAmount", midpoint = "PostCropVignetteMidpoint", roundness = "PostCropVignetteRoundness", feather = "PostCropVignetteFeather" }
+                    for key, settingName in pairs(vignetteMap) do
+                        if task.vignette[key] ~= nil then
+                            local ok, err = pcall(LrDevelopController.setValue, settingName, task.vignette[key])
+                            if not ok then log:error(string.format("   Failed to set '%s': %s", settingName, err)) else log:info(string.format("   Set '%s' to %s", settingName, tostring(task.vignette[key]))) end
+                        end
+                    end
+                end
+            elseif stage == "calibration" then
+                local calibrationMap = {
+                    redPrimary = { hue = "RedHue", sat = "RedSaturation" },
+                    greenPrimary = { hue = "GreenHue", sat = "GreenSaturation" },
+                    bluePrimary = { hue = "BlueHue", sat = "BlueSaturation" }
+                }
+                for primary, settings in pairs(calibrationMap) do
+                    if task[primary] and type(task[primary]) == "table" then
+                        for prop, settingName in pairs(settings) do
+                            if task[primary][prop] ~= nil then
+                                local value = task[primary][prop]
+                                local ok, err = pcall(LrDevelopController.setValue, settingName, value)
+                                if not ok then log:error(string.format("   Failed to set '%s': %s", settingName, err)) else log:info(string.format("   Set '%s' to %s", settingName, tostring(value))) end
+                            end
+                        end
+                    end
+                end
             elseif stage == "preset" then
                 local DevelopUtils = require 'Utils.Develop'
                 if task.apply and type(task.apply) == "table" then
@@ -148,8 +202,21 @@ function JobRunner.runJob(config)
                         local preset = DevelopUtils.findPresetByName(presetName)
                         if preset then
                             log:info("   Applying preset: " .. presetName)
-                            -- Note: applyDevelopPreset needs to be called on the LrPhoto object,
-                            -- which we have as 'photoToEdit'.
+
+                            local baseSettingsToBlend = {
+                                "Exposure", "Contrast", "Highlights", "Shadows", "Whites", "Blacks",
+                                "Clarity", "Dehaze", "Vibrance", "Saturation"
+                            }
+                            local beforeValues = {}
+                            local blendAmount = (task.blend and task.blend.amount) and (task.blend.amount / 100.0) or nil
+
+                            if blendAmount then
+                                log:info("   Blend amount found: " .. (blendAmount * 100) .. "%. Getting 'before' values.")
+                                for _, setting in ipairs(baseSettingsToBlend) do
+                                    beforeValues[setting] = LrDevelopController.getValue(setting)
+                                end
+                            end
+
                             local cat = LrApplication.activeCatalog()
                             local ok, err = cat:withWriteAccessDo("Apply Develop Preset", function()
                                 photoToEdit:applyDevelopPreset(preset)
@@ -157,12 +224,31 @@ function JobRunner.runJob(config)
 
                             if not ok then
                                 log:error(string.format("   Failed to apply preset '%s': %s", presetName, tostring(err)))
+                                goto continue_loop
                             else
                                 log:info(string.format("   Successfully applied preset '%s'", presetName))
+                            end
+
+                            if blendAmount then
+                                log:info("   Applying blend...")
+                                for _, setting in ipairs(baseSettingsToBlend) do
+                                    local beforeVal = beforeValues[setting]
+                                    local afterVal = LrDevelopController.getValue(setting)
+                                    if type(beforeVal) == 'number' and type(afterVal) == 'number' then
+                                        local finalVal = beforeVal + (afterVal - beforeVal) * blendAmount
+                                        local p_ok, p_err = pcall(LrDevelopController.setValue, setting, finalVal)
+                                        if not p_ok then
+                                            log:error(string.format("   Blend failed for '%s': %s", setting, p_err))
+                                        else
+                                            log:info(string.format("   Blended '%s' to %s", setting, tostring(finalVal)))
+                                        end
+                                    end
+                                end
                             end
                         else
                             log:warn(string.format("   Preset '%s' not found.", presetName))
                         end
+                        ::continue_loop::
                     end
                 else
                     log:warn("   'preset' stage is missing or has invalid 'apply' table.")

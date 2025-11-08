@@ -1,78 +1,70 @@
-# Junmai Auto Development Lightroom Plugin
+# Junmai AutoDev: Lightroom × LLM 自動現像システム
 
-This project automates Adobe Lightroom Classic development settings using a Large Language Model (LLM). It consists of a Lightroom plugin (written in Lua) and a local bridge server (written in Python with Flask) that communicates with an LLM hosted locally via Ollama.
+## 概要
 
-## Architecture
+**Junmai AutoDev**は、大規模言語モデル（LLM）を活用して、Adobe Lightroom Classicの現像設定を自動化するシステムです。ユーザーが「透明感のあるポートレート」のような自然言語で指示を出すと、システムがそれを解析し、Lightroomの現像パラメータに変換して自動的に適用します。
+
+このプロジェクトは、Lightroomプラグイン（Lua）、ローカルAPIブリッジ（Python/Flask）、そしてローカルLLM（Ollama）を組み合わせて実現されています。
+
+## アーキテクチャ
+
+システムは以下の3つの主要コンポーネントで構成されています。
 
 ```
-[Ollama LLM] ⇄ [Local Bridge (Python/Flask)] ⇄ [Lightroom Plugin (Lua)]
+[GUI (Python/Tkinter)] -> [ローカル・ブリッジ (Python/Flask)] <-> [Ollama LLM]
+                                     ^
+                                     | (HTTP Polling)
+                                     v
+                  [Lightroom Classic プラグイン (Lua)]
 ```
 
--   **Lightroom Plugin**: Sends requests to the bridge and applies development settings to the selected photo.
--   **Local Bridge**: Receives requests from the plugin, formats a prompt for the LLM, gets the development settings (as JSON), and serves them to the plugin.
--   **Ollama**: Hosts the local LLM that generates the development settings.
+1.  **GUI (`gui.py`)**: ユーザーがプロンプトを入力し、ブリッジサーバーに送信するためのシンプルなデスクトップアプリケーションです。
+2.  **ローカル・ブリッジ (`local_bridge/`)**:
+    *   GUIからプロンプトを受け取ります。
+    *   Ollamaで実行されているLLMにプロンプトを渡し、`LrDevConfig v1`形式のJSON現像設定を生成させます。
+    *   生成された設定をジョブとしてキューに追加し、Lightroomプラグインからのリクエストを待ちます。
+3.  **Lightroom プラグイン (`JunmaiAutoDev.lrdevplugin/`)**:
+    *   Lightroom内で動作し、定期的にローカル・ブリッジに新しいジョブがないか問い合わせます（ポーリング）。
+    *   新しいジョブがあれば取得し、そのJSON設定に基づいて、現在選択されている写真に現像設定を適用します。
+    *   安全のため、元の写真を保護する仮想コピーを作成してから編集を行います。
 
-## Features
+## セットアップ手順
 
--   Non-destructive editing via Virtual Copies and Snapshots.
--   Background polling for new development jobs.
--   Simple UI for status and manual job checking.
--   Desktop GUI for easy prompt submission.
+### 必要なもの
 
-## Setup
+*   **Adobe Lightroom Classic**: バージョン 12以上。
+*   **Python**: 3.10以上。
+*   **Ollama**: `llama3.1:8b-instruct`のような互換性のあるモデルがローカルで実行されていること。
 
-### 1. Prerequisites
+### 1. ローカル・ブリッジサーバーのセットアップ
 
--   Adobe Lightroom Classic 12.0 or later.
--   [Ollama](https://ollama.ai/) installed and running.
--   A compatible LLM pulled via Ollama (e.g., `ollama pull llama3.1:8B-instruct`).
--   Python 3.8 or later.
+まず、APIサーバーを起動します。
 
-### 2. Local Bridge Server Setup
+```bash
+# 1. 依存関係をインストール
+pip install -r local_bridge/requirements.txt
 
-1.  **Navigate to the `local_bridge` directory:**
-    ```bash
-    cd local_bridge
-    ```
+# 2. サーバーを起動
+python local_bridge/app.py
+```
 
-2.  **Install the required Python packages:**
-    ```bash
-    pip install -r requirements.txt
-    ```
+サーバーはデフォルトで `http://127.0.0.1:5100` で起動します。
 
-3.  **Run the server:**
-    ```bash
-    python app.py
-    ```
-    The server will start on `http://127.0.0.1:5100`.
+### 2. Lightroom プラグインのインストール
 
-### 3. Lightroom Plugin Setup
+1.  Lightroom Classicを開き、`ファイル > プラグインマネージャー` を選択します。
+2.  `追加`ボタンをクリックし、このリポジトリ内にある`JunmaiAutoDev.lrdevplugin`フォルダを選択します。
+3.  プラグインがリストに表示され、緑色のステータスアイコンが点灯していれば有効化されています。`完了`をクリックします。
 
-1.  **Open Lightroom Classic.**
-2.  Go to **File > Plug-in Manager**.
-3.  Click the **"Add"** button.
-4.  Navigate to this project's directory and select the `JunmaiAutoDev.lrdevplugin` folder.
-5.  The plugin will be added and enabled.
+## 使用方法
 
-## Usage
+1.  **Ollamaを起動**: `ollama serve`コマンドなどで、LLMが利用可能な状態になっていることを確認してください。
+2.  **ブリッジサーバーを起動**: 上記の手順に従って、`python local_bridge/app.py`を実行します。
+3.  **GUIを起動**: 別のターミナルで、`python gui.py`を実行してプロンプト入力画面を開きます。
+4.  **プロンプトを送信**: GUIのテキストエリアに「逆光の秋のポートレート、透明感と柔らかな肌の質感で」のような指示を入力し、`Submit to Lightroom`ボタンをクリックします。
+5.  **Lightroomで適用**:
+    *   Lightroom Classicで、現像したい写真を選択し、`現像`モジュールを開きます。
+    *   プラグインがバックグラウンドでサーバーに問い合わせ、数秒以内に新しいジョブを見つけて自動的に適用を開始します。
+    *   `JunmaiAutoDev Edit`という名前の仮想コピーが作成され、そこに設定が適用されます。
 
-### 1. Using the Desktop GUI
-
-1.  **Ensure the Local Bridge Server is running.**
-2.  **Run the GUI:**
-    ```bash
-    python gui.py
-    ```
-3.  Enter your development prompt in the text box (e.g., "A warm, vintage look for a sunny portrait").
-4.  Click **"Submit to Lightroom"**.
-
-### 2. In Lightroom Classic
-
-1.  Select a photo in the Library or Develop module.
-2.  The plugin will automatically poll for the job you submitted and apply the settings.
-3.  A new virtual copy named "JunmaiAutoDev Edit" will be created with the settings applied. The original photo remains untouched.
-4.  You can also manually check for a job by going to **Library > Plug-in Extras > Junmai AutoDev Control Panel**.
-
----
-
-This project is a proof-of-concept and is under active development.
+以上で、LLMによる自動現像が完了します。
