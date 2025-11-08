@@ -141,6 +141,32 @@ function JobRunner.runJob(config)
                 applyHslSettings(task.hue, "Hue")
                 applyHslSettings(task.sat, "Saturation")
                 applyHslSettings(task.lum, "Luminance")
+            elseif stage == "preset" then
+                local DevelopUtils = require 'Utils.Develop'
+                if task.apply and type(task.apply) == "table" then
+                    for _, presetName in ipairs(task.apply) do
+                        local preset = DevelopUtils.findPresetByName(presetName)
+                        if preset then
+                            log:info("   Applying preset: " .. presetName)
+                            -- Note: applyDevelopPreset needs to be called on the LrPhoto object,
+                            -- which we have as 'photoToEdit'.
+                            local cat = LrApplication.activeCatalog()
+                            local ok, err = cat:withWriteAccessDo("Apply Develop Preset", function()
+                                photoToEdit:applyDevelopPreset(preset)
+                            end)
+
+                            if not ok then
+                                log:error(string.format("   Failed to apply preset '%s': %s", presetName, tostring(err)))
+                            else
+                                log:info(string.format("   Successfully applied preset '%s'", presetName))
+                            end
+                        else
+                            log:warn(string.format("   Preset '%s' not found.", presetName))
+                        end
+                    end
+                else
+                    log:warn("   'preset' stage is missing or has invalid 'apply' table.")
+                end
             else
                 log:warn("   Unknown or unsupported stage: " .. stage)
             end
