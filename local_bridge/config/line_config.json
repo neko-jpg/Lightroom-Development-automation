@@ -1,0 +1,17 @@
+{
+  "enabled": true,
+  "token": "test_token_12345",
+  "notification_types": {
+    "processing_complete": true,
+    "approval_required": true,
+    "error": true,
+    "export_complete": false,
+    "batch_complete": true,
+    "system_status": true
+  },
+  "rate_limit": {
+    "max_per_hour": 50,
+    "current_count": 4,
+    "reset_time": "2025-11-09T15:00:00"
+  }
+}

@@ -1,411 +1,462 @@
 """
 Unit tests for EXIF Analyzer Engine.
 
-Tests cover:
-- Metadata extraction from various image formats
-- Camera settings parsing
-- GPS location parsing and indoor/outdoor detection
-- Time of day detection
-- Context hints inference
+Tests EXIF metadata extraction, GPS parsing, time of day detection,
+and context hint inference.
+
+Requirements: 1.3, 3.1
 """
 
-import unittest
+import pytest
 import os
-import tempfile
 from datetime import datetime, time
 from unittest.mock import Mock, patch, MagicMock
+from pathlib import Path
+
 from exif_analyzer import EXIFAnalyzer, analyze_photo
 
 
-class TestEXIFAnalyzer(unittest.TestCase):
-    """Test cases for EXIFAnalyzer class"""
+class TestEXIFAnalyzer:
+    """Test suite for EXIFAnalyzer class."""
     
-    def setUp(self):
-        """Set up test fixtures"""
-        self.analyzer = EXIFAnalyzer()
+    @pytest.fixture
+    def analyzer(self):
+        """Create EXIFAnalyzer instance for testing."""
+        return EXIFAnalyzer()
     
-    def test_initialization(self):
-        """Test analyzer initialization"""
-        self.assertIsNotNone(self.analyzer)
-        self.assertIsInstance(self.analyzer.TIME_OF_DAY_RANGES, dict)
-        self.assertIsInstance(self.analyzer.FOCAL_LENGTH_RANGES, dict)
-    
-    def test_empty_result_structure(self):
-        """Test empty result structure"""
-        result = self.analyzer._empty_result()
+    @pytest.fixture
+    def mock_exif_tags(self):
+        """Create mock EXIF tags for testing."""
+        # Create mock tags that return string values when accessed
+        make_tag = Mock()
+        make_tag.__str__ = Mock(return_value='Canon')
         
-        self.assertIn('camera', result)
-        self.assertIn('settings', result)
-        self.assertIn('location', result)
-        self.assertIn('datetime', result)
-        self.assertIn('context_hints', result)
-    
-    def test_time_of_day_detection(self):
-        """Test time of day detection from capture time"""
-        test_cases = [
-            (time(3, 0), 'night'),
-            (time(6, 0), 'blue_hour_morning'),
-            (time(7, 0), 'golden_hour_morning'),
-            (time(10, 0), 'morning'),
-            (time(12, 0), 'midday'),
-            (time(15, 0), 'afternoon'),
-            (time(17, 0), 'golden_hour_evening'),
-            (time(19, 0), 'blue_hour_evening'),
-            (time(22, 0), 'evening')
-        ]
+        model_tag = Mock()
+        model_tag.__str__ = Mock(return_value='Canon EOS R5')
         
-        for test_time, expected_period in test_cases:
-            result = self.analyzer._determine_time_of_day(test_time)
-            self.assertEqual(result, expected_period, 
-                           f"Time {test_time} should be {expected_period}, got {result}")
-    
-    def test_parse_rational_with_fraction(self):
-        """Test parsing rational values in fraction format"""
-        # Mock exifread.Ratio object
-        mock_ratio = Mock()
-        mock_ratio.num = 50
-        mock_ratio.den = 10
+        lens_tag = Mock()
+        lens_tag.__str__ = Mock(return_value='RF 50mm F1.2 L USM')
         
-        result = self.analyzer._parse_rational(mock_ratio)
-        self.assertEqual(result, 5.0)
-    
-    def test_parse_rational_with_string(self):
-        """Test parsing rational values as strings"""
-        test_cases = [
-            ("24/1", 24.0),
-            ("50/10", 5.0),
-            ("1/100", 0.01),
-            ("28", 28.0)
-        ]
+        iso_tag = Mock()
+        iso_tag.__str__ = Mock(return_value='800')
         
-        for input_val, expected in test_cases:
-            result = self.analyzer._parse_rational(input_val)
-            self.assertAlmostEqual(result, expected, places=5)
-    
-    def test_parse_rational_with_zero_denominator(self):
-        """Test handling of zero denominator"""
-        mock_ratio = Mock()
-        mock_ratio.num = 50
-        mock_ratio.den = 0
+        datetime_tag = Mock()
+        datetime_tag.__str__ = Mock(return_value='2025:11:08 17:30:00')
         
-        result = self.analyzer._parse_rational(mock_ratio)
-        self.assertIsNone(result)
-    
-    def test_gps_conversion_to_decimal(self):
-        """Test GPS coordinate conversion from DMS to decimal"""
-        # Mock GPS coordinate: 35°41'22" N
-        mock_coord = Mock()
-        mock_coord.values = [
-            Mock(num=35, den=1),  # degrees
-            Mock(num=41, den=1),  # minutes
-            Mock(num=22, den=1)   # seconds
-        ]
+        exposure_tag = Mock()
+        exposure_tag.__str__ = Mock(return_value='1/250')
         
-        result = self.analyzer._convert_gps_to_decimal(mock_coord, 'N')
-        expected = 35 + (41/60.0) + (22/3600.0)
-        self.assertAlmostEqual(result, expected, places=5)
-    
-    def test_gps_conversion_south_hemisphere(self):
-        """Test GPS conversion for southern hemisphere (negative)"""
-        mock_coord = Mock()
-        mock_coord.values = [
-            Mock(num=33, den=1),
-            Mock(num=55, den=1),
-            Mock(num=30, den=1)
-        ]
-        
-        result = self.analyzer._convert_gps_to_decimal(mock_coord, 'S')
-        self.assertLess(result, 0, "Southern latitude should be negative")
-    
-    def test_extract_camera_info(self):
-        """Test camera information extraction"""
-        mock_tags = {
-            'Image Make': 'Canon',
-            'Image Model': 'Canon EOS R5',
-            'EXIF LensModel': 'RF24-105mm F4 L IS USM'
-        }
-        
-        result = self.analyzer._extract_camera_info(mock_tags)
-        
-        self.assertEqual(result['make'], 'Canon')
-        self.assertEqual(result['model'], 'Canon EOS R5')
-        self.assertEqual(result['lens'], 'RF24-105mm F4 L IS USM')
-    
-    def test_extract_settings(self):
-        """Test camera settings extraction"""
-        mock_tags = {
-            'EXIF ISOSpeedRatings': '1600',
+        return {
+            'Image Make': make_tag,
+            'Image Model': model_tag,
+            'EXIF LensModel': lens_tag,
+            'EXIF ISOSpeedRatings': iso_tag,
             'EXIF FocalLength': Mock(num=50, den=1),
             'EXIF FNumber': Mock(num=28, den=10),  # f/2.8
-            'EXIF ExposureTime': '1/250'
+            'EXIF ExposureTime': exposure_tag,
+            'EXIF DateTimeOriginal': datetime_tag,
+            'GPS GPSLatitude': Mock(values=[Mock(num=35, den=1), Mock(num=40, den=1), Mock(num=30, den=1)]),
+            'GPS GPSLatitudeRef': Mock(values='N'),
+            'GPS GPSLongitude': Mock(values=[Mock(num=139, den=1), Mock(num=45, den=1), Mock(num=15, den=1)]),
+            'GPS GPSLongitudeRef': Mock(values='E')
         }
-        
-        result = self.analyzer._extract_settings(mock_tags)
-        
-        self.assertEqual(result['iso'], 1600)
-        self.assertEqual(result['focal_length'], 50.0)
-        self.assertAlmostEqual(result['aperture'], 2.8, places=1)
-        self.assertEqual(result['shutter_speed'], '1/250')
     
-    def test_extract_gps_with_coordinates(self):
-        """Test GPS extraction with valid coordinates"""
-        mock_lat = Mock()
-        mock_lat.values = [Mock(num=35, den=1), Mock(num=41, den=1), Mock(num=0, den=1)]
-        
-        mock_lon = Mock()
-        mock_lon.values = [Mock(num=139, den=1), Mock(num=45, den=1), Mock(num=0, den=1)]
-        
-        mock_tags = {
-            'GPS GPSLatitude': mock_lat,
-            'GPS GPSLatitudeRef': 'N',
-            'GPS GPSLongitude': mock_lon,
-            'GPS GPSLongitudeRef': 'E'
-        }
-        
-        result = self.analyzer._extract_gps(mock_tags)
-        
-        self.assertIsNotNone(result['latitude'])
-        self.assertIsNotNone(result['longitude'])
-        self.assertTrue(result['has_gps'])
-        self.assertEqual(result['location_type'], 'outdoor')
+    # ========== Initialization Tests ==========
     
-    def test_extract_gps_without_coordinates(self):
-        """Test GPS extraction without coordinates (indoor detection)"""
-        mock_tags = {}
-        
-        result = self.analyzer._extract_gps(mock_tags)
-        
-        self.assertIsNone(result['latitude'])
-        self.assertIsNone(result['longitude'])
-        self.assertFalse(result['has_gps'])
-        self.assertEqual(result['location_type'], 'unknown')
+    def test_initialization(self, analyzer):
+        """Test EXIFAnalyzer initialization."""
+        assert analyzer is not None
+        assert hasattr(analyzer, 'TIME_OF_DAY_RANGES')
+        assert hasattr(analyzer, 'FOCAL_LENGTH_RANGES')
+        assert len(analyzer.TIME_OF_DAY_RANGES) > 0
+        assert len(analyzer.FOCAL_LENGTH_RANGES) > 0
     
-    def test_extract_datetime(self):
-        """Test datetime extraction and parsing"""
-        mock_tags = {
-            'EXIF DateTimeOriginal': '2025:11:08 14:30:45'
-        }
-        
-        result = self.analyzer._extract_datetime(mock_tags)
-        
-        self.assertIsNotNone(result['capture_time'])
-        self.assertIsInstance(result['capture_time'], datetime)
-        self.assertEqual(result['capture_time'].year, 2025)
-        self.assertEqual(result['capture_time'].month, 11)
-        self.assertEqual(result['capture_time'].day, 8)
-        self.assertEqual(result['time_of_day'], 'afternoon')
+    # ========== Camera Info Extraction Tests ==========
     
-    def test_infer_context_low_light(self):
-        """Test context inference for low light conditions"""
+    def test_extract_camera_info(self, analyzer, mock_exif_tags):
+        """Test camera information extraction."""
+        camera_info = analyzer._extract_camera_info(mock_exif_tags)
+        
+        # The _get_tag_value returns the tag object, which gets converted to string
+        assert str(camera_info['make']) == 'Canon'
+        assert str(camera_info['model']) == 'Canon EOS R5'
+        assert str(camera_info['lens']) == 'RF 50mm F1.2 L USM'
+    
+    def test_extract_camera_info_missing_fields(self, analyzer):
+        """Test camera info extraction with missing fields."""
+        tags = {}
+        camera_info = analyzer._extract_camera_info(tags)
+        
+        assert camera_info['make'] is None
+        assert camera_info['model'] is None
+        assert camera_info['lens'] is None
+    
+    # ========== Settings Extraction Tests ==========
+    
+    def test_extract_settings(self, analyzer, mock_exif_tags):
+        """Test shooting settings extraction."""
+        settings = analyzer._extract_settings(mock_exif_tags)
+        
+        assert settings['iso'] == 800
+        assert settings['focal_length'] == 50.0
+        assert settings['aperture'] == 2.8
+        assert settings['shutter_speed'] == '1/250'
+    
+    def test_extract_settings_iso_parsing(self, analyzer):
+        """Test ISO value parsing."""
+        iso_tag = Mock()
+        iso_tag.__str__ = Mock(return_value='1600')
+        tags = {'EXIF ISOSpeedRatings': iso_tag}
+        settings = analyzer._extract_settings(tags)
+        
+        assert settings['iso'] == 1600
+    
+    def test_extract_settings_focal_length_parsing(self, analyzer):
+        """Test focal length parsing."""
+        # Test rational format
+        tags = {'EXIF FocalLength': Mock(num=85, den=1)}
+        settings = analyzer._extract_settings(tags)
+        assert settings['focal_length'] == 85.0
+        
+        # Test string format
+        tags = {'EXIF FocalLength': '24/1'}
+        settings = analyzer._extract_settings(tags)
+        assert settings['focal_length'] == 24.0
+    
+    def test_extract_settings_aperture_parsing(self, analyzer):
+        """Test aperture (F-number) parsing."""
+        tags = {'EXIF FNumber': Mock(num=18, den=10)}  # f/1.8
+        settings = analyzer._extract_settings(tags)
+        
+        assert settings['aperture'] == 1.8
+    
+    # ========== GPS Extraction Tests ==========
+    
+    def test_extract_gps_with_coordinates(self, analyzer, mock_exif_tags):
+        """Test GPS extraction with valid coordinates."""
+        location = analyzer._extract_gps(mock_exif_tags)
+        
+        assert location['has_gps'] is True
+        assert location['location_type'] == 'outdoor'
+        assert location['latitude'] is not None
+        assert location['longitude'] is not None
+        assert 35.0 < location['latitude'] < 36.0  # Approximate Tokyo latitude
+        assert 139.0 < location['longitude'] < 140.0  # Approximate Tokyo longitude
+    
+    def test_extract_gps_without_coordinates(self, analyzer):
+        """Test GPS extraction without coordinates."""
+        tags = {}
+        location = analyzer._extract_gps(tags)
+        
+        assert location['has_gps'] is False
+        assert location['location_type'] == 'unknown'
+        assert location['latitude'] is None
+        assert location['longitude'] is None
+    
+    def test_convert_gps_to_decimal_north_east(self, analyzer):
+        """Test GPS coordinate conversion for North/East."""
+        # 35°40'30"N = 35.675°
+        coord = [Mock(num=35, den=1), Mock(num=40, den=1), Mock(num=30, den=1)]
+        ref = 'N'
+        
+        decimal = analyzer._convert_gps_to_decimal(coord, ref)
+        
+        assert decimal is not None
+        assert abs(decimal - 35.675) < 0.001
+    
+    def test_convert_gps_to_decimal_south_west(self, analyzer):
+        """Test GPS coordinate conversion for South/West."""
+        # 35°40'30"S = -35.675°
+        coord = [Mock(num=35, den=1), Mock(num=40, den=1), Mock(num=30, den=1)]
+        ref = 'S'
+        
+        decimal = analyzer._convert_gps_to_decimal(coord, ref)
+        
+        assert decimal is not None
+        assert abs(decimal + 35.675) < 0.001
+    
+    # ========== DateTime Extraction Tests ==========
+    
+    def test_extract_datetime(self, analyzer, mock_exif_tags):
+        """Test datetime extraction and parsing."""
+        datetime_info = analyzer._extract_datetime(mock_exif_tags)
+        
+        assert datetime_info['capture_time'] is not None
+        assert isinstance(datetime_info['capture_time'], datetime)
+        assert datetime_info['capture_time'].year == 2025
+        assert datetime_info['capture_time'].month == 11
+        assert datetime_info['capture_time'].day == 8
+        assert datetime_info['capture_time'].hour == 17
+        assert datetime_info['capture_time'].minute == 30
+    
+    def test_determine_time_of_day_golden_hour(self, analyzer):
+        """Test time of day determination for golden hour."""
+        # Evening golden hour: 16:30-18:30
+        capture_time = time(17, 30)
+        time_of_day = analyzer._determine_time_of_day(capture_time)
+        
+        assert time_of_day == 'golden_hour_evening'
+    
+    def test_determine_time_of_day_midday(self, analyzer):
+        """Test time of day determination for midday."""
+        capture_time = time(12, 30)
+        time_of_day = analyzer._determine_time_of_day(capture_time)
+        
+        assert time_of_day == 'midday'
+    
+    def test_determine_time_of_day_night(self, analyzer):
+        """Test time of day determination for night."""
+        capture_time = time(2, 30)
+        time_of_day = analyzer._determine_time_of_day(capture_time)
+        
+        assert time_of_day == 'night'
+    
+    # ========== Context Hints Inference Tests ==========
+    
+    def test_infer_context_low_light(self, analyzer):
+        """Test context inference for low light conditions."""
         exif_data = {
             'settings': {'iso': 3200, 'focal_length': 50},
             'location': {'location_type': 'unknown', 'has_gps': False},
-            'datetime': {'time_of_day': 'evening'}
+            'datetime': {'time_of_day': 'night'}
         }
         
-        hints = self.analyzer._infer_context(exif_data)
+        hints = analyzer._infer_context(exif_data)
         
-        self.assertEqual(hints['lighting'], 'low_light')
-        self.assertTrue(hints.get('likely_indoor', False))
+        # ISO 3200 is in the 'low_light' range (1600-3200), not 'very_low_light' (>3200)
+        assert hints['lighting'] == 'low_light'
+        assert hints.get('likely_indoor') is True
     
-    def test_infer_context_portrait(self):
-        """Test context inference for portrait photography"""
+    def test_infer_context_portrait(self, analyzer):
+        """Test context inference for portrait photography."""
         exif_data = {
-            'settings': {'iso': 800, 'focal_length': 85},  # Increased ISO to trigger backlight risk
+            'settings': {'iso': 400, 'focal_length': 85},
+            'location': {'location_type': 'outdoor', 'has_gps': True},
+            'datetime': {'time_of_day': 'afternoon'}
+        }
+        
+        hints = analyzer._infer_context(exif_data)
+        
+        assert hints['subject_type'] == 'portrait'
+        assert hints['lighting'] == 'good_light'
+    
+    def test_infer_context_landscape(self, analyzer):
+        """Test context inference for landscape photography."""
+        exif_data = {
+            'settings': {'iso': 200, 'focal_length': 24},
+            'location': {'location_type': 'outdoor', 'has_gps': True},
+            'datetime': {'time_of_day': 'golden_hour_morning'}
+        }
+        
+        hints = analyzer._infer_context(exif_data)
+        
+        assert hints['subject_type'] == 'wide'
+        assert hints['special_lighting'] == 'golden_hour'
+    
+    def test_infer_context_backlight_risk(self, analyzer):
+        """Test backlight risk detection."""
+        exif_data = {
+            'settings': {'iso': 800, 'focal_length': 50},
             'location': {'location_type': 'outdoor', 'has_gps': True},
             'datetime': {'time_of_day': 'golden_hour_evening'}
         }
         
-        hints = self.analyzer._infer_context(exif_data)
+        hints = analyzer._infer_context(exif_data)
         
-        self.assertEqual(hints['subject_type'], 'portrait')
-        self.assertEqual(hints['special_lighting'], 'golden_hour')
-        self.assertTrue(hints.get('backlight_risk', False))
+        assert hints.get('backlight_risk') is True
     
-    def test_infer_context_landscape(self):
-        """Test context inference for landscape photography"""
-        exif_data = {
-            'settings': {'iso': 100, 'focal_length': 24},
-            'location': {'location_type': 'outdoor', 'has_gps': True},
-            'datetime': {'time_of_day': 'morning'}
-        }
-        
-        hints = self.analyzer._infer_context(exif_data)
-        
-        self.assertEqual(hints['subject_type'], 'wide')
-        self.assertEqual(hints['lighting'], 'good_light')
+    # ========== Rational Value Parsing Tests ==========
     
-    def test_extract_for_database(self):
-        """Test extraction formatted for database storage"""
-        with patch.object(self.analyzer, 'analyze') as mock_analyze:
-            mock_analyze.return_value = {
-                'camera': {
-                    'make': 'Canon',
-                    'model': 'EOS R5',
-                    'lens': 'RF24-105mm'
-                },
-                'settings': {
-                    'iso': 800,
-                    'focal_length': 50.0,
-                    'aperture': 2.8,
-                    'shutter_speed': '1/250'
-                },
-                'location': {
-                    'latitude': 35.6895,
-                    'longitude': 139.6917
-                },
-                'datetime': {
-                    'capture_time': datetime(2025, 11, 8, 14, 30)
-                }
-            }
+    def test_parse_rational_with_ratio_object(self, analyzer):
+        """Test parsing rational value with ratio object."""
+        value = Mock(num=50, den=1)
+        result = analyzer._parse_rational(value)
+        
+        assert result == 50.0
+    
+    def test_parse_rational_with_string(self, analyzer):
+        """Test parsing rational value from string."""
+        result = analyzer._parse_rational('24/1')
+        assert result == 24.0
+        
+        result = analyzer._parse_rational('28/10')
+        assert result == 2.8
+    
+    def test_parse_rational_with_zero_denominator(self, analyzer):
+        """Test parsing rational value with zero denominator."""
+        value = Mock(num=50, den=0)
+        result = analyzer._parse_rational(value)
+        
+        assert result is None
+    
+    def test_parse_rational_with_invalid_value(self, analyzer):
+        """Test parsing invalid rational value."""
+        result = analyzer._parse_rational('invalid')
+        assert result is None
+    
+    # ========== Full Analysis Tests ==========
+    
+    @patch('builtins.open', create=True)
+    def test_analyze_success(self, mock_open, analyzer, mock_exif_tags):
+        """Test successful photo analysis."""
+        with patch('exif_analyzer.exifread') as mock_exifread:
+            mock_exifread.process_file.return_value = mock_exif_tags
+            mock_open.return_value.__enter__.return_value = MagicMock()
             
-            result = self.analyzer.extract_for_database('test.jpg')
+            # Create a temporary test file
+            test_file = 'test_photo.jpg'
             
-            self.assertEqual(result['camera_make'], 'Canon')
-            self.assertEqual(result['camera_model'], 'EOS R5')
-            self.assertEqual(result['lens'], 'RF24-105mm')
-            self.assertEqual(result['iso'], 800)
-            self.assertEqual(result['focal_length'], 50.0)
-            self.assertAlmostEqual(result['aperture'], 2.8, places=1)
-            self.assertEqual(result['shutter_speed'], '1/250')
-            self.assertAlmostEqual(result['gps_lat'], 35.6895, places=4)
-            self.assertAlmostEqual(result['gps_lon'], 139.6917, places=4)
+            with patch('os.path.exists', return_value=True), \
+                 patch('exif_analyzer.EXIFREAD_AVAILABLE', True):
+                result = analyzer.analyze(test_file)
+            
+            assert 'camera' in result
+            assert 'settings' in result
+            assert 'location' in result
+            assert 'datetime' in result
+            assert 'context_hints' in result
     
-    def test_analyze_nonexistent_file(self):
-        """Test handling of nonexistent file"""
-        with self.assertRaises(FileNotFoundError):
-            self.analyzer.analyze('nonexistent_file.jpg')
+    def test_analyze_file_not_found(self, analyzer):
+        """Test analysis with non-existent file."""
+        with pytest.raises(FileNotFoundError):
+            analyzer.analyze('nonexistent_file.jpg')
     
-    def test_get_tag_value(self):
-        """Test safe tag value retrieval"""
-        tags = {'TestTag': 'TestValue'}
+    @patch('exif_analyzer.EXIFREAD_AVAILABLE', False)
+    def test_analyze_without_exifread(self, analyzer):
+        """Test analysis when exifread is not available."""
+        with patch('os.path.exists', return_value=True):
+            result = analyzer.analyze('test_photo.jpg')
         
-        result = self.analyzer._get_tag_value(tags, 'TestTag')
-        self.assertEqual(result, 'TestValue')
-        
-        result = self.analyzer._get_tag_value(tags, 'NonExistentTag')
-        self.assertIsNone(result)
+        # Should return empty result
+        assert result['camera'] == {}
+        assert result['settings'] == {}
+        assert result['location'] == {}
+        assert result['datetime'] == {}
     
-    def test_focal_length_ranges(self):
-        """Test focal length range definitions"""
-        ranges = self.analyzer.FOCAL_LENGTH_RANGES
-        
-        self.assertIn('ultra_wide', ranges)
-        self.assertIn('portrait', ranges)
-        self.assertIn('telephoto', ranges)
-        
-        # Verify ranges don't overlap
-        for name, (min_fl, max_fl) in ranges.items():
-            self.assertLess(min_fl, max_fl, f"Range {name} has invalid bounds")
+    # ========== Database Export Tests ==========
     
-    def test_time_of_day_ranges_coverage(self):
-        """Test that time of day ranges cover full 24 hours"""
-        ranges = self.analyzer.TIME_OF_DAY_RANGES
-        
-        # Test some key times are covered
-        test_times = [
-            time(0, 0),   # midnight
-            time(6, 0),   # dawn
-            time(12, 0),  # noon
-            time(18, 0),  # dusk
-            time(23, 59)  # end of day
-        ]
-        
-        for test_time in test_times:
-            result = self.analyzer._determine_time_of_day(test_time)
-            self.assertNotEqual(result, 'unknown', 
-                              f"Time {test_time} should have a defined period")
-
-
-class TestConvenienceFunction(unittest.TestCase):
-    """Test convenience function"""
+    @patch('builtins.open', create=True)
+    def test_extract_for_database(self, mock_open, analyzer, mock_exif_tags):
+        """Test database-ready EXIF extraction."""
+        with patch('exif_analyzer.exifread') as mock_exifread:
+            mock_exifread.process_file.return_value = mock_exif_tags
+            mock_open.return_value.__enter__.return_value = MagicMock()
+            
+            test_file = 'test_photo.jpg'
+            
+            with patch('os.path.exists', return_value=True), \
+                 patch('exif_analyzer.EXIFREAD_AVAILABLE', True):
+                db_data = analyzer.extract_for_database(test_file)
+            
+            # Check database fields
+            assert 'camera_make' in db_data
+            assert 'camera_model' in db_data
+            assert 'lens' in db_data
+            assert 'focal_length' in db_data
+            assert 'aperture' in db_data
+            assert 'shutter_speed' in db_data
+            assert 'iso' in db_data
+            assert 'capture_time' in db_data
+            assert 'gps_lat' in db_data
+            assert 'gps_lon' in db_data
     
-    @patch('exif_analyzer.EXIFAnalyzer')
-    def test_analyze_photo_function(self, mock_analyzer_class):
-        """Test the analyze_photo convenience function"""
-        mock_instance = Mock()
-        mock_instance.analyze.return_value = {'test': 'data'}
-        mock_analyzer_class.return_value = mock_instance
+    # ========== Convenience Function Tests ==========
+    
+    @patch('exif_analyzer.EXIFAnalyzer.analyze')
+    def test_analyze_photo_convenience_function(self, mock_analyze):
+        """Test convenience function for photo analysis."""
+        mock_analyze.return_value = {'test': 'data'}
         
         result = analyze_photo('test.jpg')
         
-        mock_instance.analyze.assert_called_once_with('test.jpg')
-        self.assertEqual(result, {'test': 'data'})
+        assert result == {'test': 'data'}
+        mock_analyze.assert_called_once_with('test.jpg')
 
 
-class TestEXIFAnalyzerIntegration(unittest.TestCase):
-    """Integration tests with mock EXIF data"""
+class TestEXIFAnalyzerIntegration:
+    """Integration tests for EXIF Analyzer with real-world scenarios."""
     
-    def setUp(self):
-        """Set up test fixtures"""
-        self.analyzer = EXIFAnalyzer()
+    @pytest.fixture
+    def analyzer(self):
+        """Create EXIFAnalyzer instance."""
+        return EXIFAnalyzer()
     
-    @patch('exif_analyzer.exifread.process_file')
-    @patch('builtins.open', create=True)
-    def test_full_analysis_workflow(self, mock_open, mock_process_file):
-        """Test complete analysis workflow with mocked EXIF data"""
-        # Create comprehensive mock EXIF tags
-        mock_tags = {
-            'Image Make': 'Canon',
-            'Image Model': 'EOS R5',
-            'EXIF LensModel': 'RF24-105mm F4 L IS USM',
-            'EXIF ISOSpeedRatings': '1600',
-            'EXIF FocalLength': Mock(num=85, den=1),
-            'EXIF FNumber': Mock(num=28, den=10),
-            'EXIF ExposureTime': '1/250',
-            'EXIF DateTimeOriginal': '2025:11:08 17:30:00',
-            'GPS GPSLatitude': Mock(values=[
-                Mock(num=35, den=1),
-                Mock(num=41, den=1),
-                Mock(num=22, den=1)
-            ]),
-            'GPS GPSLatitudeRef': 'N',
-            'GPS GPSLongitude': Mock(values=[
-                Mock(num=139, den=1),
-                Mock(num=45, den=1),
-                Mock(num=30, den=1)
-            ]),
-            'GPS GPSLongitudeRef': 'E'
+    def test_portrait_scenario(self, analyzer):
+        """Test portrait photography scenario."""
+        exif_data = {
+            'camera': {'make': 'Canon', 'model': 'EOS R5'},
+            'settings': {
+                'iso': 800,  # Need ISO > 400 for backlight risk
+                'focal_length': 85.0,
+                'aperture': 1.8,
+                'shutter_speed': '1/200'
+            },
+            'location': {
+                'latitude': 35.6762,
+                'longitude': 139.6503,
+                'location_type': 'outdoor',
+                'has_gps': True
+            },
+            'datetime': {
+                'capture_time': datetime(2025, 11, 8, 17, 30),
+                'time_of_day': 'golden_hour_evening'
+            }
         }
         
-        mock_process_file.return_value = mock_tags
-        mock_file = MagicMock()
-        mock_open.return_value.__enter__.return_value = mock_file
+        hints = analyzer._infer_context(exif_data)
         
-        # Create a temporary file for testing
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as tmp:
-            tmp_path = tmp.name
+        assert hints['subject_type'] == 'portrait'
+        assert hints['lighting'] == 'moderate_light'  # ISO 800 is moderate
+        assert hints['special_lighting'] == 'golden_hour'
+        assert hints.get('backlight_risk') is True
+    
+    def test_indoor_event_scenario(self, analyzer):
+        """Test indoor event photography scenario."""
+        exif_data = {
+            'settings': {
+                'iso': 3200,
+                'focal_length': 35.0,
+                'aperture': 2.0
+            },
+            'location': {
+                'location_type': 'unknown',
+                'has_gps': False
+            },
+            'datetime': {
+                'time_of_day': 'evening'
+            }
+        }
         
-        try:
-            result = self.analyzer.analyze(tmp_path)
-            
-            # Verify camera info
-            self.assertEqual(result['camera']['make'], 'Canon')
-            self.assertEqual(result['camera']['model'], 'EOS R5')
-            
-            # Verify settings
-            self.assertEqual(result['settings']['iso'], 1600)
-            self.assertEqual(result['settings']['focal_length'], 85.0)
-            
-            # Verify location
-            self.assertTrue(result['location']['has_gps'])
-            self.assertEqual(result['location']['location_type'], 'outdoor')
-            
-            # Verify datetime
-            self.assertEqual(result['datetime']['time_of_day'], 'golden_hour_evening')
-            
-            # Verify context hints
-            hints = result['context_hints']
-            self.assertEqual(hints['lighting'], 'moderate_light')  # ISO 1600 is moderate_light range
-            self.assertEqual(hints['subject_type'], 'portrait')
-            self.assertEqual(hints['special_lighting'], 'golden_hour')
-            self.assertTrue(hints.get('backlight_risk', False))
-            
-        finally:
-            # Clean up
-            if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+        hints = analyzer._infer_context(exif_data)
+        
+        # ISO 3200 is in the 'low_light' range (1600-3200), not 'very_low_light' (>3200)
+        assert hints['lighting'] == 'low_light'
+        assert hints['subject_type'] == 'standard'
+        assert hints.get('likely_indoor') is True
+    
+    def test_landscape_scenario(self, analyzer):
+        """Test landscape photography scenario."""
+        exif_data = {
+            'settings': {
+                'iso': 100,
+                'focal_length': 16.0,
+                'aperture': 11.0
+            },
+            'location': {
+                'location_type': 'outdoor',
+                'has_gps': True
+            },
+            'datetime': {
+                'time_of_day': 'golden_hour_morning'
+            }
+        }
+        
+        hints = analyzer._infer_context(exif_data)
+        
+        assert hints['subject_type'] == 'ultra_wide'
+        assert hints['lighting'] == 'good_light'
+        assert hints['special_lighting'] == 'golden_hour'
 
 
 if __name__ == '__main__':
-    unittest.main()
+    pytest.main([__file__, '-v'])

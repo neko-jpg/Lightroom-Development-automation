@@ -397,6 +397,83 @@ class ABTestAssignment(Base):
         }
 
 
+class DesktopNotification(Base):
+    """デスクトップ通知履歴テーブル"""
+    __tablename__ = 'desktop_notifications'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    title = Column(String(255), nullable=False)
+    message = Column(Text, nullable=False)
+    notification_type = Column(
+        String(50),
+        CheckConstraint("notification_type IN ('processing_complete', 'approval_required', 'error', 'export_complete', 'batch_complete', 'system_status')"),
+        nullable=False
+    )
+    priority = Column(
+        Integer,
+        CheckConstraint('priority IN (1, 2, 3)'),
+        nullable=False,
+        default=2
+    )
+    sent_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    read = Column(Boolean, default=False)
+    dismissed = Column(Boolean, default=False)
+    data = Column(Text)  # JSON data
+    
+    def __repr__(self):
+        return f"<DesktopNotification(id={self.id}, type='{self.notification_type}', priority={self.priority})>"
+    
+    def get_data(self):
+        """Parse and return notification data"""
+        return json.loads(self.data) if self.data else {}
+    
+    def set_data(self, data_dict):
+        """Set notification data from dictionary"""
+        self.data = json.dumps(data_dict, ensure_ascii=False)
+    
+    def to_dict(self):
+        """Convert notification to dictionary for API responses"""
+        return {
+            'id': self.id,
+            'title': self.title,
+            'message': self.message,
+            'notification_type': self.notification_type,
+            'priority': self.priority,
+            'sent_at': self.sent_at.isoformat() if self.sent_at else None,
+            'read': self.read,
+            'dismissed': self.dismissed,
+            'data': self.get_data()
+        }
+
+
+class PushSubscription(Base):
+    """プッシュ通知サブスクリプションテーブル"""
+    __tablename__ = 'push_subscriptions'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    endpoint = Column(String(512), unique=True, nullable=False)
+    p256dh_key = Column(String(255), nullable=False)
+    auth_key = Column(String(255), nullable=False)
+    user_agent = Column(String(512))
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    last_used = Column(DateTime)
+    active = Column(Boolean, default=True)
+    
+    def __repr__(self):
+        return f"<PushSubscription(id={self.id}, endpoint='{self.endpoint[:50]}...', active={self.active})>"
+    
+    def to_dict(self):
+        """Convert subscription to dictionary for API responses"""
+        return {
+            'id': self.id,
+            'endpoint': self.endpoint[:50] + '...',
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'last_used': self.last_used.isoformat() if self.last_used else None,
+            'active': self.active,
+            'user_agent': self.user_agent
+        }
+
+
 # Create indexes for performance
 Index('idx_photos_session', Photo.session_id)
 Index('idx_photos_status', Photo.status)
@@ -410,6 +487,11 @@ Index('idx_ab_tests_status', ABTest.status)
 Index('idx_ab_test_assignments_test', ABTestAssignment.test_id)
 Index('idx_ab_test_assignments_photo', ABTestAssignment.photo_id)
 Index('idx_ab_test_assignments_variant', ABTestAssignment.variant)
+Index('idx_desktop_notifications_type', DesktopNotification.notification_type)
+Index('idx_desktop_notifications_priority', DesktopNotification.priority)
+Index('idx_desktop_notifications_sent_at', DesktopNotification.sent_at)
+Index('idx_push_subscriptions_endpoint', PushSubscription.endpoint)
+Index('idx_push_subscriptions_active', PushSubscription.active)
 
 
 # Database initialization and session management

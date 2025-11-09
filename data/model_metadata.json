@@ -1,0 +1,114 @@
+{
+  "current_model": "llama3.1:8b-instruct",
+  "models": {
+    "llama3.1:8b-instruct": {
+      "name": "llama3.1:8b-instruct",
+      "size": "8b",
+      "purpose": "balanced",
+      "description": "Llama 3.1 8B Instruct - Balanced performance",
+      "recommended_use": "General photo evaluation and tagging",
+      "min_vram_gb": 6.0,
+      "quantization_support": [
+        "q4",
+        "q8"
+      ],
+      "download_size_mb": 4700,
+      "installed": false,
+      "last_used": null,
+      "usage_count": 0,
+      "avg_inference_time": null,
+      "success_rate": null
+    },
+    "llama3.1:13b-instruct": {
+      "name": "llama3.1:13b-instruct",
+      "size": "13b",
+      "purpose": "quality",
+      "description": "Llama 3.1 13B Instruct - High quality",
+      "recommended_use": "Detailed photo analysis and critique",
+      "min_vram_gb": 8.0,
+      "quantization_support": [
+        "q4",
+        "q8"
+      ],
+      "download_size_mb": 7400,
+      "installed": false,
+      "last_used": null,
+      "usage_count": 0,
+      "avg_inference_time": null,
+      "success_rate": null
+    },
+    "llama3.1:70b-instruct": {
+      "name": "llama3.1:70b-instruct",
+      "size": "70b",
+      "purpose": "quality",
+      "description": "Llama 3.1 70B Instruct - Highest quality",
+      "recommended_use": "Professional photo evaluation",
+      "min_vram_gb": 40.0,
+      "quantization_support": [
+        "q4",
+        "q8"
+      ],
+      "download_size_mb": 40000,
+      "installed": false,
+      "last_used": null,
+      "usage_count": 0,
+      "avg_inference_time": null,
+      "success_rate": null
+    },
+    "mixtral:8x7b-instruct": {
+      "name": "mixtral:8x7b-instruct",
+      "size": "8x7b",
+      "purpose": "quality",
+      "description": "Mixtral 8x7B - Mixture of Experts",
+      "recommended_use": "Complex photo analysis",
+      "min_vram_gb": 24.0,
+      "quantization_support": [
+        "q4",
+        "q8"
+      ],
+      "download_size_mb": 26000,
+      "installed": false,
+      "last_used": null,
+      "usage_count": 0,
+      "avg_inference_time": null,
+      "success_rate": null
+    },
+    "llama3.2:3b-instruct": {
+      "name": "llama3.2:3b-instruct",
+      "size": "3b",
+      "purpose": "speed",
+      "description": "Llama 3.2 3B Instruct - Fast inference",
+      "recommended_use": "Quick photo tagging and basic evaluation",
+      "min_vram_gb": 2.0,
+      "quantization_support": [
+        "q4",
+        "q8"
+      ],
+      "download_size_mb": 2000,
+      "installed": false,
+      "last_used": null,
+      "usage_count": 0,
+      "avg_inference_time": null,
+      "success_rate": null
+    },
+    "llama3.2:1b-instruct": {
+      "name": "llama3.2:1b-instruct",
+      "size": "1b",
+      "purpose": "speed",
+      "description": "Llama 3.2 1B Instruct - Ultra-fast",
+      "recommended_use": "Rapid batch processing",
+      "min_vram_gb": 1.0,
+      "quantization_support": [
+        "q4",
+        "q8"
+      ],
+      "download_size_mb": 1300,
+      "installed": false,
+      "last_used": null,
+      "usage_count": 0,
+      "avg_inference_time": null,
+      "success_rate": null
+    }
+  },
+  "last_updated": "2025-11-09T17:08:24.549462"
+}

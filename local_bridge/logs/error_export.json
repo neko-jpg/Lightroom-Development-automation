@@ -1,0 +1,148 @@
+[
+  {
+    "timestamp": "2025-11-09T17:32:20.733672",
+    "category": "file_system",
+    "severity": "medium",
+    "recovery_strategy": "retry_backoff",
+    "error_code": "FS_READ_ERROR",
+    "message": "Failed to read file: /photo0.jpg",
+    "details": {
+      "file_path": "/photo0.jpg"
+    },
+    "stack_trace": "NoneType: None\n",
+    "retry_count": 0,
+    "max_retries": 3
+  },
+  {
+    "timestamp": "2025-11-09T17:32:20.734000",
+    "category": "file_system",
+    "severity": "medium",
+    "recovery_strategy": "retry_backoff",
+    "error_code": "FS_READ_ERROR",
+    "message": "Failed to read file: /photo1.jpg",
+    "details": {
+      "file_path": "/photo1.jpg"
+    },
+    "stack_trace": "NoneType: None\n",
+    "retry_count": 0,
+    "max_retries": 3
+  },
+  {
+    "timestamp": "2025-11-09T17:32:20.734219",
+    "category": "file_system",
+    "severity": "medium",
+    "recovery_strategy": "retry_backoff",
+    "error_code": "FS_READ_ERROR",
+    "message": "Failed to read file: /photo2.jpg",
+    "details": {
+      "file_path": "/photo2.jpg"
+    },
+    "stack_trace": "NoneType: None\n",
+    "retry_count": 0,
+    "max_retries": 3
+  },
+  {
+    "timestamp": "2025-11-09T17:32:20.734421",
+    "category": "file_system",
+    "severity": "medium",
+    "recovery_strategy": "retry_backoff",
+    "error_code": "FS_READ_ERROR",
+    "message": "Failed to read file: /photo3.jpg",
+    "details": {
+      "file_path": "/photo3.jpg"
+    },
+    "stack_trace": "NoneType: None\n",
+    "retry_count": 0,
+    "max_retries": 3
+  },
+  {
+    "timestamp": "2025-11-09T17:32:20.734626",
+    "category": "file_system",
+    "severity": "medium",
+    "recovery_strategy": "retry_backoff",
+    "error_code": "FS_READ_ERROR",
+    "message": "Failed to read file: /photo4.jpg",
+    "details": {
+      "file_path": "/photo4.jpg"
+    },
+    "stack_trace": "NoneType: None\n",
+    "retry_count": 0,
+    "max_retries": 3
+  },
+  {
+    "timestamp": "2025-11-09T17:32:20.734865",
+    "category": "ai_processing",
+    "severity": "high",
+    "recovery_strategy": "retry_backoff",
+    "error_code": "AI_LLM_TIMEOUT",
+    "message": "LLM response timeout after 30s",
+    "details": {
+      "timeout_seconds": 30,
+      "model_name": "llama3.1"
+    },
+    "stack_trace": "NoneType: None\n",
+    "retry_count": 0,
+    "max_retries": 3
+  },
+  {
+    "timestamp": "2025-11-09T17:32:20.735106",
+    "category": "ai_processing",
+    "severity": "high",
+    "recovery_strategy": "retry_backoff",
+    "error_code": "AI_LLM_TIMEOUT",
+    "message": "LLM response timeout after 30s",
+    "details": {
+      "timeout_seconds": 30,
+      "model_name": "llama3.1"
+    },
+    "stack_trace": "NoneType: None\n",
+    "retry_count": 0,
+    "max_retries": 3
+  },
+  {
+    "timestamp": "2025-11-09T17:32:20.735318",
+    "category": "ai_processing",
+    "severity": "high",
+    "recovery_strategy": "retry_backoff",
+    "error_code": "AI_LLM_TIMEOUT",
+    "message": "LLM response timeout after 30s",
+    "details": {
+      "timeout_seconds": 30,
+      "model_name": "llama3.1"
+    },
+    "stack_trace": "NoneType: None\n",
+    "retry_count": 0,
+    "max_retries": 3
+  },
+  {
+    "timestamp": "2025-11-09T17:32:20.735545",
+    "category": "resource",
+    "severity": "high",
+    "recovery_strategy": "wait_resource",
+    "error_code": "RESOURCE_GPU_OVERHEAT",
+    "message": "GPU overheating: 80.0°C (threshold: 75.0°C)",
+    "details": {
+      "current_temp": 80.0,
+      "threshold": 75.0
+    },
+    "stack_trace": "NoneType: None\n",
+    "retry_count": 0,
+    "max_retries": 3
+  },
+  {
+    "timestamp": "2025-11-09T17:32:20.735782",
+    "category": "export",
+    "severity": "medium",
+    "recovery_strategy": "retry_backoff",
+    "error_code": "EXPORT_CLOUD_SYNC",
+    "message": "Failed to sync to Dropbox: /photo.jpg",
+    "details": {
+      "provider": "Dropbox",
+      "file_path": "/photo.jpg",
+      "reason": null
+    },
+    "stack_trace": "NoneType: None\n",
+    "retry_count": 0,
+    "max_retries": 3
+  }
+]

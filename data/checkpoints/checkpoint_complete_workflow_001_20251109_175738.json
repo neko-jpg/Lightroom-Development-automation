@@ -1,0 +1,12 @@
+{
+  "checkpoint_id": "checkpoint_complete_workflow_001_20251109_175738",
+  "operation_id": "complete_workflow_001",
+  "operation_name": "Complete Workflow",
+  "state": "running",
+  "timestamp": "2025-11-09T17:57:38.114812",
+  "progress": 0.6,
+  "data": {
+    "current_item": 6
+  },
+  "metadata": {}
+}

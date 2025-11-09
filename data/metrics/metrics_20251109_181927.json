@@ -1,0 +1,123 @@
+{
+  "export_timestamp": "2025-11-09T18:19:27.543094",
+  "processing_times": [
+    {
+      "timestamp": "2025-11-09T18:19:25.723299",
+      "operation": "exif_analysis",
+      "duration_ms": 200.545072555542,
+      "photo_id": 1,
+      "job_id": null,
+      "stage": null,
+      "success": true,
+      "error_message": null
+    },
+    {
+      "timestamp": "2025-11-09T18:19:26.324074",
+      "operation": "ai_evaluation",
+      "duration_ms": 600.4459857940674,
+      "photo_id": 1,
+      "job_id": null,
+      "stage": null,
+      "success": true,
+      "error_message": null
+    },
+    {
+      "timestamp": "2025-11-09T18:19:26.524532",
+      "operation": "context_determination",
+      "duration_ms": 200.17671585083008,
+      "photo_id": 1,
+      "job_id": null,
+      "stage": null,
+      "success": true,
+      "error_message": null
+    },
+    {
+      "timestamp": "2025-11-09T18:19:27.524896",
+      "operation": "preset_application",
+      "duration_ms": 1000.0855922698975,
+      "photo_id": 1,
+      "job_id": null,
+      "stage": null,
+      "success": true,
+      "error_message": null
+    },
+    {
+      "timestamp": "2025-11-09T18:19:27.525178",
+      "operation": "full_photo_processing",
+      "duration_ms": 2002.4430751800537,
+      "photo_id": 1,
+      "job_id": null,
+      "stage": null,
+      "success": true,
+      "error_message": null
+    }
+  ],
+  "memory_usage": [],
+  "gpu_usage": [],
+  "summary": {
+    "processing_time_stats": {
+      "count": 5,
+      "operation": null,
+      "duration_minutes": null,
+      "total_duration_ms": 4003.6964416503906,
+      "avg_duration_ms": 800.7392883300781,
+      "min_duration_ms": 200.17671585083008,
+      "max_duration_ms": 2002.4430751800537,
+      "median_duration_ms": 600.4459857940674,
+      "success_count": 5,
+      "failure_count": 0,
+      "success_rate": 100.0,
+      "first_timestamp": "2025-11-09T18:19:25.723299",
+      "last_timestamp": "2025-11-09T18:19:27.525178"
+    },
+    "memory_usage_stats": {
+      "count": 0
+    },
+    "gpu_usage_stats": {
+      "count": 0,
+      "gpu_id": null
+    },
+    "operation_summary": [
+      {
+        "operation": "full_photo_processing",
+        "count": 1,
+        "avg_duration_ms": 2002.4430751800537,
+        "total_duration_ms": 2002.4430751800537,
+        "success_rate": 100.0,
+        "failure_count": 0
+      },
+      {
+        "operation": "preset_application",
+        "count": 1,
+        "avg_duration_ms": 1000.0855922698975,
+        "total_duration_ms": 1000.0855922698975,
+        "success_rate": 100.0,
+        "failure_count": 0
+      },
+      {
+        "operation": "ai_evaluation",
+        "count": 1,
+        "avg_duration_ms": 600.4459857940674,
+        "total_duration_ms": 600.4459857940674,
+        "success_rate": 100.0,
+        "failure_count": 0
+      },
+      {
+        "operation": "exif_analysis",
+        "count": 1,
+        "avg_duration_ms": 200.545072555542,
+        "total_duration_ms": 200.545072555542,
+        "success_rate": 100.0,
+        "failure_count": 0
+      },
+      {
+        "operation": "context_determination",
+        "count": 1,
+        "avg_duration_ms": 200.17671585083008,
+        "total_duration_ms": 200.17671585083008,
+        "success_rate": 100.0,
+        "failure_count": 0
+      }
+    ]
+  }
+}

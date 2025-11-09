@@ -1,0 +1,28 @@
+{
+  "enabled": true,
+  "smtp_server": "smtp.test.com",
+  "smtp_port": 587,
+  "use_tls": true,
+  "use_ssl": false,
+  "username": "test@test.com",
+  "password": "test",
+  "from_address": "test@test.com",
+  "from_name": "Junmai AutoDev",
+  "to_addresses": [
+    "recipient@test.com"
+  ],
+  "batch_notifications": {
+    "enabled": true,
+    "interval_minutes": 60,
+    "min_notifications": 3
+  },
+  "notification_types": {
+    "processing_complete": true,
+    "approval_required": true,
+    "error": true,
+    "export_complete": false,
+    "batch_complete": true,
+    "daily_summary": true,
+    "weekly_summary": true
+  }
+}

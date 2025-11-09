@@ -19,6 +19,7 @@ from celery_tasks import (
 )
 from models.database import get_session, Photo, Job, Session as DBSession
 from logging_system import get_logging_system
+from priority_manager import get_priority_manager
 from typing import Dict, List, Optional
 from datetime import datetime, timedelta
 import json
@@ -40,6 +41,7 @@ class JobQueueManager:
     def __init__(self):
         """Initialize job queue manager"""
         self.celery_app = app
+        self.priority_manager = get_priority_manager()
         logging_system.log("INFO", "Job queue manager initialized")
     
     def submit_photo_processing(
@@ -68,9 +70,9 @@ class JobQueueManager:
             if not photo:
                 raise ValueError(f"Photo not found: {photo_id}")
             
-            # Calculate priority
-            priority = get_priority_for_photo(
-                ai_score=photo.ai_score,
+            # Calculate priority using advanced priority manager
+            priority = self.priority_manager.calculate_priority(
+                photo_id=photo_id,
                 user_requested=user_requested
             )
             
@@ -466,6 +468,86 @@ class JobQueueManager:
             
         finally:
             db_session.close()
+    
+    def adjust_job_priority(self, job_id: str, new_priority: int) -> bool:
+        """
+        Adjust priority of an existing job
+        
+        Args:
+            job_id: Job database ID
+            new_priority: New priority value (1-10)
+            
+        Returns:
+            True if successful
+            
+        Requirements: 4.4
+        """
+        return self.priority_manager.adjust_job_priority(job_id, new_priority)
+    
+    def rebalance_priorities(self) -> Dict:
+        """
+        Rebalance priorities for all pending jobs
+        
+        Returns:
+            Rebalancing statistics
+            
+        Requirements: 4.4
+        """
+        return self.priority_manager.rebalance_queue_priorities()
+    
+    def boost_session_priority(self, session_id: int, boost_amount: int = 2) -> Dict:
+        """
+        Boost priority for all jobs in a session
+        
+        Args:
+            session_id: Session database ID
+            boost_amount: Amount to increase priority by
+            
+        Returns:
+            Boost statistics
+            
+        Requirements: 4.4
+        """
+        return self.priority_manager.boost_session_priority(session_id, boost_amount)
+    
+    def get_priority_distribution(self) -> Dict:
+        """
+        Get distribution of priorities in the queue
+        
+        Returns:
+            Priority distribution statistics
+            
+        Requirements: 4.4
+        """
+        return self.priority_manager.get_priority_distribution()
+    
+    def auto_boost_starving_jobs(self, age_threshold_hours: int = 12) -> Dict:
+        """
+        Automatically boost priority of jobs waiting too long
+        
+        Args:
+            age_threshold_hours: Hours threshold for auto-boost
+            
+        Returns:
+            Auto-boost statistics
+            
+        Requirements: 4.4
+        """
+        return self.priority_manager.auto_boost_starving_jobs(age_threshold_hours)
+    
+    def get_starvation_candidates(self, age_threshold_hours: int = 12) -> List[Dict]:
+        """
+        Identify jobs at risk of starvation
+        
+        Args:
+            age_threshold_hours: Hours threshold for detection
+            
+        Returns:
+            List of starving job details
+            
+        Requirements: 4.4
+        """
+        return self.priority_manager.get_starvation_candidates(age_threshold_hours)
 
 
 # Global instance

@@ -1,0 +1,34 @@
+[
+  {
+    "backup_id": "backup_20251109_175512_671610",
+    "source_path": "data\\test_backup.txt",
+    "backup_path": "data\\backups\\test_backup_backup_20251109_175512.txt",
+    "timestamp": "2025-11-09T17:55:12.671638",
+    "size_bytes": 16,
+    "checksum": "59428bce534bf173a6a3adbbe4fa0b0c2357b772c28845769f612dda25b723c4"
+  },
+  {
+    "backup_id": "backup_20251109_175512_692020",
+    "source_path": "data\\restore_test.txt",
+    "backup_path": "data\\backups\\restore_test_backup_20251109_175512.txt",
+    "timestamp": "2025-11-09T17:55:12.692049",
+    "size_bytes": 28,
+    "checksum": "df6ba87f294b1047c75bf99461d2dfc08385deb8e0304645e733e3d1b6501544"
+  },
+  {
+    "backup_id": "backup_20251109_175733_672296",
+    "source_path": "data\\test_processing.db",
+    "backup_path": "data\\backups\\test_processing_backup_20251109_175733.db",
+    "timestamp": "2025-11-09T17:57:33.672327",
+    "size_bytes": 13,
+    "checksum": "fdb8f7c0987f27ce7f1d9178715c756873ecb629ca3ab148aa6a8dfd4b7809dc"
+  },
+  {
+    "backup_id": "backup_20251109_175737_495056",
+    "source_path": "data\\workflow_test.txt",
+    "backup_path": "data\\backups\\workflow_test_backup_20251109_175737.txt",
+    "timestamp": "2025-11-09T17:57:37.495102",
+    "size_bytes": 13,
+    "checksum": "83717ee04ee23ae2d63b468fd0f0264a836d9722b821cd430f7229f9d5bbeaaa"
+  }
+]

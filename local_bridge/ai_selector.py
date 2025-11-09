@@ -39,7 +39,9 @@ class AISelector:
         context_engine: Optional[ContextEngine] = None,
         ollama_client: Optional[OllamaClient] = None,
         enable_llm: bool = True,
-        llm_model: str = "llama3.1:8b-instruct"
+        llm_model: str = "llama3.1:8b-instruct",
+        enable_quantization: bool = False,
+        quantization_bits: int = 8
     ):
         """
         Initialize AI Selector.
@@ -51,15 +53,29 @@ class AISelector:
             ollama_client: Ollama client for LLM evaluation
             enable_llm: Enable LLM-based evaluation (default: True)
             llm_model: LLM model to use (default: llama3.1:8b-instruct)
+            enable_quantization: Enable model quantization (default: False)
+            quantization_bits: Quantization bits - 4 or 8 (default: 8)
         """
         self.quality_evaluator = quality_evaluator or ImageQualityEvaluator()
         self.exif_analyzer = exif_analyzer or EXIFAnalyzer()
         self.context_engine = context_engine or ContextEngine()
-        self.ollama_client = ollama_client or OllamaClient()
+        
+        # Initialize Ollama client with quantization settings
+        if ollama_client:
+            self.ollama_client = ollama_client
+        else:
+            self.ollama_client = OllamaClient(
+                enable_quantization=enable_quantization,
+                quantization_bits=quantization_bits
+            )
+        
         self.enable_llm = enable_llm
         self.llm_model = llm_model
         
-        logger.info(f"AI Selector initialized (LLM: {enable_llm}, Model: {llm_model})")
+        logger.info(
+            f"AI Selector initialized (LLM: {enable_llm}, Model: {llm_model}, "
+            f"Quantization: {enable_quantization}, Bits: {quantization_bits if enable_quantization else 'N/A'})"
+        )
     
     def evaluate(self, image_path: str) -> Dict:
         """
@@ -595,6 +611,70 @@ TAGS: [推奨タグをカンマ区切りで5つまで]
         logger.info(f"Filtered {len(filtered)}/{len(image_paths)} images (min_score={min_score})")
         
         return filtered
+    
+    def set_quantization(self, enable: bool, bits: int = 8):
+        """
+        Enable or disable model quantization.
+        
+        Args:
+            enable: Enable quantization
+            bits: Quantization bits (4 or 8)
+        """
+        self.ollama_client.set_quantization(enable, bits)
+        logger.info(f"AI Selector quantization updated: {enable} ({bits}-bit)")
+    
+    def get_quantization_settings(self) -> Dict:
+        """
+        Get current quantization settings.
+        
+        Returns:
+            Dictionary with quantization settings
+        """
+        return self.ollama_client.get_quantization_settings()
+    
+    def get_performance_stats(self) -> Dict:
+        """
+        Get LLM performance statistics.
+        
+        Returns:
+            Performance statistics dictionary
+        """
+        return self.ollama_client.get_performance_stats()
+    
+    def compare_quantization_performance(
+        self,
+        test_image_path: str,
+        test_iterations: int = 3
+    ) -> Dict:
+        """
+        Compare performance between non-quantized and quantized models.
+        
+        Args:
+            test_image_path: Path to test image
+            test_iterations: Number of test iterations
+            
+        Returns:
+            Comparison results dictionary
+        """
+        logger.info(f"Starting quantization performance comparison with {test_iterations} iterations")
+        
+        # Get test data
+        quality_results = self.quality_evaluator.evaluate(test_image_path)
+        exif_data = self.exif_analyzer.analyze(test_image_path)
+        context = self.context_engine.determine_context(exif_data, quality_results)
+        
+        # Build test prompt
+        test_prompt = self._build_evaluation_prompt(quality_results, exif_data, context)
+        
+        # Run comparison
+        results = self.ollama_client.compare_quantization_performance(
+            model=self.llm_model,
+            prompt=test_prompt,
+            test_iterations=test_iterations
+        )
+        
+        logger.info("Quantization performance comparison complete")
+        return results
 
 
 def main():

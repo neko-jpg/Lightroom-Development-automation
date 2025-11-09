@@ -1,0 +1,16 @@
+{
+  "checkpoint_id": "checkpoint_resume_with_errors_001_20251109_175737",
+  "operation_id": "resume_with_errors_001",
+  "operation_name": "Resumable Processing",
+  "state": "failed",
+  "timestamp": "2025-11-09T17:57:37.471016",
+  "progress": 0.4,
+  "data": {
+    "processed": 40,
+    "total": 100,
+    "last_error": null
+  },
+  "metadata": {
+    "error": "AI processing failed at item 62"
+  }
+}

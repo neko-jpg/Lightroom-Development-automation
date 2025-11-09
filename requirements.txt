@@ -1,0 +1,11 @@
+# PyQt6 GUI dependencies
+PyQt6==6.7.0
+PyQt6-Qt6==6.7.0
+PyQt6-sip==13.6.0
+
+# Core dependencies
+requests==2.32.5
+
+# Build and deployment dependencies
+PyInstaller==6.3.0
+packaging==23.2

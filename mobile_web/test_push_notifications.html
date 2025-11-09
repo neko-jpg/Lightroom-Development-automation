@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Push Notification Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-top: 0;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .badge.granted {
+            background: #28a745;
+            color: white;
+        }
+        .badge.denied {
+            background: #dc3545;
+            color: white;
+        }
+        .badge.default {
+            background: #ffc107;
+            color: black;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>🔔 Push Notification Test</h1>
+        <p>Test push notification functionality for Junmai AutoDev PWA</p>
+    </div>
+
+    <div class="card">
+        <h2>Status</h2>
+        <div id="status"></div>
+        <div id="permission-status"></div>
+        <div id="subscription-status"></div>
+    </div>
+
+    <div class="card">
+        <h2>Actions</h2>
+        <button id="check-support">Check Support</button>
+        <button id="request-permission">Request Permission</button>
+        <button id="subscribe">Subscribe</button>
+        <button id="unsubscribe">Unsubscribe</button>
+        <button id="test-notification">Test Notification</button>
+        <button id="show-subscription">Show Subscription</button>
+    </div>
+
+    <div class="card">
+        <h2>Subscription Details</h2>
+        <pre id="subscription-details">No subscription yet</pre>
+    </div>
+
+    <script>
+        let registration = null;
+        let subscription = null;
+
+        // Check if service worker and push are supported
+        document.getElementById('check-support').addEventListener('click', () => {
+            const supported = 'serviceWorker' in navigator && 'PushManager' in window;
+            const message = supported 
+                ? '✅ Push notifications are supported!' 
+                : '❌ Push notifications are not supported in this browser';
+            
+            showStatus(message, supported ? 'success' : 'error');
+            updatePermissionStatus();
+        });
+
+        // Request notification permission
+        document.getElementById('request-permission').addEventListener('click', async () => {
+            try {
+                const permission = await Notification.requestPermission();
+                showStatus(`Permission: ${permission}`, permission === 'granted' ? 'success' : 'error');
+                updatePermissionStatus();
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        });
+
+        // Subscribe to push notifications
+        document.getElementById('subscribe').addEventListener('click', async () => {
+            try {
+                // Register service worker if not already registered
+                if (!registration) {
+                    registration = await navigator.serviceWorker.register('/service-worker.js');
+                    await navigator.serviceWorker.ready;
+                }
+
+                // Subscribe to push
+                subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array('') // Empty for testing
+                });
+
+                showStatus('✅ Subscribed successfully!', 'success');
+                updateSubscriptionStatus();
+                displaySubscription();
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        });
+
+        // Unsubscribe from push notifications
+        document.getElementById('unsubscribe').addEventListener('click', async () => {
+            try {
+                if (!subscription) {
+                    const reg = await navigator.serviceWorker.ready;
+                    subscription = await reg.pushManager.getSubscription();
+                }
+
+                if (subscription) {
+                    await subscription.unsubscribe();
+                    subscription = null;
+                    showStatus('✅ Unsubscribed successfully!', 'success');
+                    updateSubscriptionStatus();
+                    document.getElementById('subscription-details').textContent = 'No subscription';
+                } else {
+                    showStatus('No active subscription', 'info');
+                }
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        });
+
+        // Test notification (local)
+        document.getElementById('test-notification').addEventListener('click', async () => {
+            try {
+                if (Notification.permission !== 'granted') {
+                    showStatus('Permission not granted. Request permission first.', 'error');
+                    return;
+                }
+
+                const reg = await navigator.serviceWorker.ready;
+                await reg.showNotification('Junmai AutoDev Test', {
+                    body: 'This is a test notification!',
+                    icon: '/logo192.png',
+                    badge: '/logo192.png',
+                    vibrate: [200, 100, 200],
+                    tag: 'test-notification',
+                    data: {
+                        url: '/',
+                        type: 'test'
+                    }
+                });
+
+                showStatus('✅ Test notification sent!', 'success');
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        });
+
+        // Show subscription details
+        document.getElementById('show-subscription').addEventListener('click', async () => {
+            try {
+                const reg = await navigator.serviceWorker.ready;
+                subscription = await reg.pushManager.getSubscription();
+                
+                if (subscription) {
+                    displaySubscription();
+                    showStatus('Subscription details displayed', 'success');
+                } else {
+                    showStatus('No active subscription', 'info');
+                }
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        });
+
+        // Helper functions
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+        }
+
+        function updatePermissionStatus() {
+            const permission = Notification.permission;
+            const badge = `<span class="badge ${permission}">${permission.toUpperCase()}</span>`;
+            document.getElementById('permission-status').innerHTML = 
+                `<strong>Permission:</strong> ${badge}`;
+        }
+
+        function updateSubscriptionStatus() {
+            const isSubscribed = subscription !== null;
+            const badge = isSubscribed 
+                ? '<span class="badge granted">SUBSCRIBED</span>'
+                : '<span class="badge default">NOT SUBSCRIBED</span>';
+            document.getElementById('subscription-status').innerHTML = 
+                `<strong>Subscription:</strong> ${badge}`;
+        }
+
+        function displaySubscription() {
+            if (!subscription) return;
+
+            const details = {
+                endpoint: subscription.endpoint,
+                keys: {
+                    p256dh: arrayBufferToBase64(subscription.getKey('p256dh')),
+                    auth: arrayBufferToBase64(subscription.getKey('auth'))
+                }
+            };
+
+            document.getElementById('subscription-details').textContent = 
+                JSON.stringify(details, null, 2);
+        }
+
+        function urlBase64ToUint8Array(base64String) {
+            if (!base64String) return new Uint8Array(0);
+            
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding)
+                .replace(/-/g, '+')
+                .replace(/_/g, '/');
+
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        }
+
+        function arrayBufferToBase64(buffer) {
+            const bytes = new Uint8Array(buffer);
+            let binary = '';
+            for (let i = 0; i < bytes.byteLength; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return window.btoa(binary);
+        }
+
+        // Initialize on load
+        window.addEventListener('load', () => {
+            updatePermissionStatus();
+            updateSubscriptionStatus();
+        });
+    </script>
+</body>
+</html>

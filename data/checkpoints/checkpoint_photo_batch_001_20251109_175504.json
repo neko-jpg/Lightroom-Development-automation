@@ -1,0 +1,17 @@
+{
+  "checkpoint_id": "checkpoint_photo_batch_001_20251109_175504",
+  "operation_id": "photo_batch_001",
+  "operation_name": "Batch Photo Processing",
+  "state": "running",
+  "timestamp": "2025-11-09T17:55:04.990299",
+  "progress": 0.4,
+  "data": {
+    "processed_photos": 40,
+    "total_photos": 100,
+    "current_batch": 4
+  },
+  "metadata": {
+    "start_time": 1762678504.9902387,
+    "user": "photographer_001"
+  }
+}
