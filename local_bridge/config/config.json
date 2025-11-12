@@ -1,0 +1,82 @@
+{
+  "version": "2.0",
+  "system": {
+    "hot_folders": [],
+    "lightroom_catalog": "",
+    "temp_folder": "C:/Temp/JunmaiAutoDev",
+    "log_level": "INFO"
+  },
+  "ai": {
+    "llm_provider": "ollama",
+    "llm_model": "llama3.1:8b-instruct",
+    "ollama_host": "http://localhost:11434",
+    "gpu_memory_limit_mb": 6144,
+    "enable_quantization": false,
+    "selection_threshold": 3.5
+  },
+  "processing": {
+    "auto_import": true,
+    "auto_select": true,
+    "auto_develop": true,
+    "auto_export": false,
+    "max_concurrent_jobs": 3,
+    "cpu_limit_percent": 80,
+    "gpu_temp_limit_celsius": 75
+  },
+  "export": {
+    "presets": [
+      {
+        "name": "SNS",
+        "enabled": true,
+        "format": "JPEG",
+        "quality": 85,
+        "max_dimension": 2048,
+        "color_space": "sRGB",
+        "destination": "D:/Export/SNS"
+      },
+      {
+        "name": "Print",
+        "enabled": false,
+        "format": "JPEG",
+        "quality": 95,
+        "max_dimension": 4096,
+        "color_space": "AdobeRGB",
+        "destination": "D:/Export/Print"
+      },
+      {
+        "name": "Archive",
+        "enabled": false,
+        "format": "TIFF",
+        "quality": 100,
+        "max_dimension": 8192,
+        "color_space": "ProPhotoRGB",
+        "destination": "D:/Export/Archive"
+      }
+    ],
+    "cloud_sync": {
+      "enabled": false,
+      "provider": "none",
+      "remote_path": "/Photos/Processed"
+    }
+  },
+  "notifications": {
+    "desktop": true,
+    "email": {
+      "enabled": false,
+      "smtp_server": "smtp.gmail.com",
+      "smtp_port": 587,
+      "use_tls": true,
+      "from_address": "",
+      "to_address": ""
+    },
+    "line": {
+      "enabled": false,
+      "token": ""
+    }
+  },
+  "ui": {
+    "theme": "dark",
+    "language": "ja",
+    "show_advanced_settings": false
+  }
+}
