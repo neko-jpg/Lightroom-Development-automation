@@ -1,0 +1,10 @@
+{
+  "name": "JunmaiAutoDev",
+  "version": "2.0.0",
+  "build_timestamp": "2025-11-09T11:56:42.670265+00:00",
+  "artifacts": {
+    "launcher": "JunmaiAutoDevLauncher.exe",
+    "desktop": "JunmaiAutoDev.exe",
+    "plugin_dir": "JunmaiAutoDev.lrdevplugin"
+  }
+}

@@ -7,5 +7,5 @@ PyQt6-sip==13.6.0
 requests==2.32.5
 
 # Build and deployment dependencies
-PyInstaller==6.3.0
+PyInstaller==6.16.0
 packaging==23.2

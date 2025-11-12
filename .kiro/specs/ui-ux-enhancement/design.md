@@ -1,3 +1,6 @@
+タスクに関して
+pythonでテストを行う際には、python test・・・といった形ではなく
+py ・・・で行うようにする
 # Design Document
 
 ## Overview

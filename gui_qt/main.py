@@ -1,81 +1,91 @@
 """
 Junmai AutoDev - Desktop GUI Application Entry Point
-アプリケーションエントリーポイント
+アプリケーションのエントリー・ポイント
 
-Requirements: 8.1 - デスクトップGUI実装
+Requirements: Desktop GUI with Guided Flow experience.
 """
 
-import sys
+from __future__ import annotations
+
 import os
-from PyQt6.QtWidgets import QApplication
+import sys
+from pathlib import Path
+from typing import Optional
+
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon
+from PyQt6.QtWidgets import QApplication
+
 from main_window import MainWindow
 
+DEFAULT_THEME = "dark"
 
-def load_stylesheet(theme="dark"):
+
+def resource_path(*parts: str) -> Path:
+    base_dir = Path(__file__).resolve().parent
+    return base_dir.joinpath(*parts)
+
+
+def load_stylesheet(theme: str = DEFAULT_THEME) -> str:
     """
-    スタイルシートを読み込む
-    
+    Load the requested stylesheet.
+
     Args:
-        theme: "dark" または "light"
-    
-    Returns:
-        str: スタイルシート文字列
+        theme: "dark" or "light"
     """
-    stylesheet_path = os.path.join(
-        os.path.dirname(__file__),
-        "resources",
-        "styles",
-        f"{theme}_theme.qss"
-    )
-    
+
+    stylesheet_path = resource_path("resources", "styles", f"{theme}_theme.qss")
+
     try:
-        with open(stylesheet_path, "r", encoding="utf-8") as f:
-            return f.read()
+        return stylesheet_path.read_text(encoding="utf-8")
     except FileNotFoundError:
         print(f"Warning: Stylesheet not found: {stylesheet_path}")
         return ""
 
 
-def main():
-    """
-    アプリケーションのメインエントリーポイント
-    """
-    # アプリケーション作成
-    app = QApplication(sys.argv)
-    
-    # アプリケーション情報設定
+def configure_application(app: QApplication, theme: str = DEFAULT_THEME) -> None:
+    """Applies shared configuration to the QApplication instance."""
     app.setApplicationName("Junmai AutoDev")
     app.setApplicationVersion("2.0.0")
     app.setOrganizationName("Junmai AutoDev")
-    
-    # High DPI対応
+
     app.setAttribute(Qt.ApplicationAttribute.AA_EnableHighDpiScaling, True)
     app.setAttribute(Qt.ApplicationAttribute.AA_UseHighDpiPixmaps, True)
-    
-    # スタイルシート適用（デフォルト: ダークテーマ）
-    stylesheet = load_stylesheet("dark")
+
+    stylesheet = load_stylesheet(theme)
     if stylesheet:
         app.setStyleSheet(stylesheet)
-    
-    # アイコン設定（存在する場合）
-    icon_path = os.path.join(
-        os.path.dirname(__file__),
-        "resources",
-        "icons",
-        "app_icon.png"
-    )
-    if os.path.exists(icon_path):
-        app.setWindowIcon(QIcon(icon_path))
-    
-    # メインウィンドウ作成・表示
-    window = MainWindow()
+
+    icon_path = resource_path("resources", "icons", "app_icon.png")
+    if icon_path.exists():
+        app.setWindowIcon(QIcon(str(icon_path)))
+
+
+def create_application(theme: str = DEFAULT_THEME) -> QApplication:
+    """Initializes QApplication with shared configuration."""
+    app = QApplication(sys.argv)
+    configure_application(app, theme=theme)
+    return app
+
+
+def launch(theme: str = DEFAULT_THEME, guided_mode: bool = True) -> int:
+    """
+    Launch the Junmai AutoDev desktop application.
+
+    Args:
+        theme: Which stylesheet to apply ("dark" or "light").
+        guided_mode: If True, show the simplified Guided Flow tab by default.
+    """
+    app = create_application(theme=theme)
+    window = MainWindow(guided_mode=guided_mode)
     window.show()
-    
-    # イベントループ開始
-    sys.exit(app.exec())
+    return app.exec()
+
+
+def main() -> int:
+    """Maintains backwards compatibility with python gui_qt/main.py."""
+    return launch()
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

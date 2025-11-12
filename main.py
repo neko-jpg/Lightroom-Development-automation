@@ -1,104 +1,142 @@
-# main.py
+"""Junmai AutoDev desktop entry point.
+
+Responsibilities:
+1. Start the local_bridge Flask server (in a worker thread).
+2. Launch the PyQt6 desktop UI.
+3. Coordinate graceful shutdown so no stray processes linger.
+"""
+
+from __future__ import annotations
+
+import argparse
+import atexit
+import logging
 import threading
-import sys
-import os
-import time
-import tkinter as tk
-from tkinter import messagebox, scrolledtext
-import requests
+from contextlib import suppress
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
+from typing import Iterable
 
-# When running as a script, the project root is the current directory,
-# so the 'local_bridge' package can be imported directly.
-# For PyInstaller, we will need to ensure all modules are correctly bundled.
-from local_bridge import app as flask_app_module
+from werkzeug.serving import make_server
 
-def run_server():
-    """Runs the Flask server in a dedicated thread."""
-    print("Starting Flask server...")
+SERVER = None
+BASE_DIR = Path(__file__).resolve().parent
+LOG_DIR = Path.cwd() / "logs"
+
+
+def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Junmai AutoDev desktop launcher.")
+    parser.add_argument(
+        "--skip-checks",
+        action="store_true",
+        help="Skip startup filesystem/service checks (used for fast relaunches).",
+    )
+    return parser.parse_args(argv)
+
+
+def configure_logging() -> None:
+    """Configure root logger with rotating file handler."""
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    formatter = logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s - %(message)s"
+    )
+
+    file_handler = RotatingFileHandler(
+        LOG_DIR / "desktop.log",
+        maxBytes=1_000_000,
+        backupCount=5,
+        encoding="utf-8",
+    )
+    file_handler.setFormatter(formatter)
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+
+    root_logger = logging.getLogger()
+    root_logger.handlers.clear()
+    root_logger.setLevel(logging.INFO)
+    root_logger.addHandler(file_handler)
+    root_logger.addHandler(console_handler)
+
+
+def perform_startup_checks() -> None:
+    """Ensure required directories exist before services spin up."""
+    jobs_base = BASE_DIR / "local_bridge" / "jobs"
+    required_dirs = [
+        jobs_base / "inbox",
+        jobs_base / "processing",
+        jobs_base / "completed",
+        jobs_base / "failed",
+        LOG_DIR,
+    ]
+
+    for directory in required_dirs:
+        directory.mkdir(parents=True, exist_ok=True)
+
+    logging.info("Startup checks completed (directories ready).")
+
+
+def run_server() -> None:
+    """Runs the Flask bridge server using Werkzeug's WSGI server."""
+    global SERVER
+    from local_bridge import app as flask_app_module  # Lazy import for PyInstaller
+
+    logging.info("Starting Junmai AutoDev bridge server on http://127.0.0.1:5100")
     try:
-        # Run the Flask app without debug mode or the auto-reloader,
-        # which are unsuitable for a packaged application.
-        flask_app_module.app.run(host='127.0.0.1', port=5100, debug=False, use_reloader=False)
-    except Exception as e:
-        # This will be printed to the console if the server fails to start.
-        print(f"Error starting Flask server: {e}")
+        SERVER = make_server(
+            "127.0.0.1",
+            5100,
+            flask_app_module.app,
+        )
+        SERVER.serve_forever()
+    except Exception as exc:  # pragma: no cover - logged for observability
+        logging.exception("Bridge server crashed: %s", exc)
 
-def start_gui():
-    """Creates and runs the main Tkinter GUI."""
-    API_URL = "http://127.0.0.1:5100/job"
 
-    def submit_prompt():
-        """Handles the prompt submission via the API."""
-        prompt_text = text_area.get("1.0", tk.END).strip()
-        if not prompt_text:
-            messagebox.showwarning("Input Error", "Prompt cannot be empty.")
-            return
+def shutdown_server() -> None:
+    """Stops the Werkzeug server when the app exits."""
+    global SERVER
+    if SERVER is not None:
+        logging.info("Shutting down bridge server")
+        with suppress(Exception):
+            SERVER.shutdown()
+        SERVER = None
 
-        payload = {"prompt": prompt_text}
-        submit_button.config(text="Submitting...", state=tk.DISABLED)
-        window.update_idletasks()
 
-        try:
-            # A longer timeout is better as the LLM generation can be slow.
-            response = requests.post(API_URL, json=payload, timeout=60)
-            response.raise_for_status()
-            job_info = response.json()
-            job_id = job_info.get("jobId", "N/A")
-            messagebox.showinfo("Success", f"Job submitted successfully!\nJob ID: {job_id}")
-        except requests.exceptions.RequestException as e:
-            messagebox.showerror("API Error", f"Could not submit job. Is the server running?\n\nDetails: {e}")
-        finally:
-            submit_button.config(text="Submit to Lightroom", state=tk.NORMAL)
+atexit.register(shutdown_server)
 
-    # --- GUI Layout ---
-    window = tk.Tk()
-    window.title("Junmai AutoDev v1.0")
-    window.geometry("500x350")
-    main_frame = tk.Frame(window, padx=10, pady=10)
-    main_frame.pack(fill=tk.BOTH, expand=True)
 
-    prompt_label = tk.Label(main_frame, text="Enter your development prompt:")
-    prompt_label.pack(anchor="w", pady=(0, 5))
+def start_gui() -> int:
+    """Creates and runs the PyQt6 desktop application."""
+    from gui_qt import main as qt_main  # Imported lazily for PyInstaller
 
-    text_area = scrolledtext.ScrolledText(main_frame, wrap=tk.WORD, height=10, width=60)
-    text_area.pack(fill=tk.BOTH, expand=True)
-    text_area.focus()
+    logging.info("Launching Junmai AutoDev desktop UI")
+    return qt_main.launch()
 
-    submit_button = tk.Button(main_frame, text="Submit to Lightroom", command=submit_prompt)
-    submit_button.pack(pady=(10, 0), fill=tk.X)
 
-    status_bar = tk.Label(window, text="Server status: Initializing...", bd=1, relief=tk.SUNKEN, anchor=tk.W)
-    status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+def main(argv: Iterable[str] | None = None) -> int:
+    """Entry point used by both python and the packaged executable."""
+    args = parse_args(argv)
+    configure_logging()
 
-    def check_server_status():
-        """Periodically pings a server endpoint to check its status."""
-        try:
-            # Use a lightweight, existing endpoint for the health check.
-            requests.get("http://127.0.0.1:5100/config", timeout=1)
-            status_bar.config(text="Server status: Running", fg="green")
-        except requests.exceptions.ConnectionError:
-            status_bar.config(text="Server status: Not responding", fg="red")
+    if not args.skip_checks:
+        perform_startup_checks()
+    else:
+        logging.info("Skipping startup checks (per --skip-checks).")
 
-        # Schedule the next check.
-        window.after(5000, check_server_status)
-
-    # Start checking the server status shortly after the GUI loads.
-    window.after(2000, check_server_status)
-
-    # Start the Tkinter event loop. This blocks until the window is closed.
-    window.mainloop()
-
-if __name__ == '__main__':
-    print("Starting Junmai AutoDev Application...")
-
-    # Run the Flask server in a background thread.
-    # Making it a daemon thread ensures it automatically shuts down
-    # when the main application (GUI) exits.
-    server_thread = threading.Thread(target=run_server)
-    server_thread.daemon = True
+    server_thread = threading.Thread(target=run_server, daemon=True, name="bridge-server")
     server_thread.start()
 
-    # The GUI must run in the main thread for OS compatibility (especially macOS).
-    start_gui()
+    exit_code = start_gui()
 
-    print("GUI closed. Application shutting down.")
+    shutdown_server()
+    with suppress(Exception):
+        if server_thread.is_alive():
+            logging.info("Waiting for bridge server to terminate")
+            server_thread.join(timeout=2)
+
+    return exit_code
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
